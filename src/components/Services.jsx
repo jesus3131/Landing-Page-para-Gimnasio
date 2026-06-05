@@ -1,9 +1,7 @@
 import useServices from '../controllers/useServices'
 
 export default function Services() {
-  const { services, loading } = useServices()
-
-  if (loading || services.length === 0) return null
+  const { services } = useServices()
 
   return (
     <section id="servicios" className="relative py-24 lg:py-32 bg-surface-card/50 overflow-hidden">

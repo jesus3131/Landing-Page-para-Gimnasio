@@ -1,27 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
 export default function ScrollReveal() {
-  const initialized = useRef(false)
-
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('revealed')
-          }
-        })
-      },
-      { threshold: 0.1 }
-    )
-
-    const elements = document.querySelectorAll('.scroll-reveal')
-    elements.forEach((el) => observer.observe(el))
-
-    return () => observer.disconnect()
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.querySelectorAll('.scroll-reveal').forEach(el => {
+        el.style.opacity = '1'
+        el.style.transform = 'translateY(0)'
+      })
+      return
+    }
   }, [])
 
   return null

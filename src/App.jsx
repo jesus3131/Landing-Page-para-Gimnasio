@@ -5,7 +5,11 @@ import Hero from './components/Hero'
 import Benefits from './components/Benefits'
 import Services from './components/Services'
 import Plans from './components/Plans'
+import Coaches from './components/Coaches'
 import Testimonials from './components/Testimonials'
+import Team from './components/Team'
+import Events from './components/Events'
+import News from './components/News'
 import Gallery from './components/Gallery'
 import Contact from './components/Contact'
 import Footer from './components/Footer'
@@ -31,7 +35,7 @@ function AppContent() {
   if (showAdmin) {
     return (
       <>
-        <Admin />
+        <Admin onLogout={() => setShowAdmin(false)} />
         <Chatbot />
         <WhatsApp />
       </>
@@ -45,7 +49,11 @@ function AppContent() {
       <Benefits />
       <Services />
       <Plans />
+      <Coaches />
       <Testimonials />
+      <Team />
+      <Events />
+      <News />
       <Gallery />
       <Contact />
       <Footer />

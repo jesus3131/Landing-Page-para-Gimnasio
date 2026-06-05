@@ -1,9 +1,7 @@
 import useBenefits from '../controllers/useBenefits'
 
 export default function Benefits() {
-  const { benefits, loading } = useBenefits()
-
-  if (loading || benefits.length === 0) return null
+  const { benefits } = useBenefits()
 
   return (
     <section id="beneficios" className="relative py-24 lg:py-32 overflow-hidden">

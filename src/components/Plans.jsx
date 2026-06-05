@@ -1,9 +1,7 @@
 import usePlans from '../controllers/usePlans'
 
 export default function Plans() {
-  const { plans, loading } = usePlans()
-
-  if (loading || plans.length === 0) return null
+  const { plans } = usePlans()
 
   return (
     <section id="planes" className="relative py-24 lg:py-32">

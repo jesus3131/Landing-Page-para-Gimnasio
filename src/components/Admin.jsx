@@ -5,24 +5,43 @@ import useAdminGallery from '../controllers/useAdminGallery'
 import useAdminUsers from '../controllers/useAdminUsers'
 import useAdminBenefits from '../controllers/useAdminBenefits'
 import useAdminServices from '../controllers/useAdminServices'
+import useAdminCoaches from '../controllers/useAdminCoaches'
+import useAdminTeam from '../controllers/useAdminTeam'
+import useAdminEvents from '../controllers/useAdminEvents'
+import useAdminNews from '../controllers/useAdminNews'
 
-export default function Admin() {
-  const { profile, isAdmin, isSecretary, logout } = useAuth()
+export default function Admin({ onLogout }) {
+  const { profile, isAdmin, hasPermission, logout: authLogout } = useAuth()
   const [activeTab, setActiveTab] = useState('dashboard')
 
+  const logout = () => { authLogout(); onLogout?.() }
+
+  const can = (perm) => isAdmin || hasPermission(perm)
+
   useEffect(() => {
-    if (isSecretary && (activeTab === 'users' || activeTab === 'benefits' || activeTab === 'services')) setActiveTab('dashboard')
-  }, [isSecretary, activeTab])
+    if (!can('users.manage') && activeTab === 'users') setActiveTab('dashboard')
+    if (!can('benefits.manage') && activeTab === 'benefits') setActiveTab('dashboard')
+    if (!can('services.manage') && activeTab === 'services') setActiveTab('dashboard')
+    if (!can('coaches.manage') && activeTab === 'coaches') setActiveTab('dashboard')
+    if (!can('team.manage') && activeTab === 'team') setActiveTab('dashboard')
+    if (!can('events.manage') && activeTab === 'events') setActiveTab('dashboard')
+    if (!can('news.manage') && activeTab === 'news') setActiveTab('dashboard')
+    if (!can('gallery.manage') && activeTab === 'gallery') setActiveTab('dashboard')
+  }, [activeTab])
 
   if (!profile) return null
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { id: 'messages', label: 'Mensajes', icon: 'mail' },
-    ...(isAdmin ? [{ id: 'benefits', label: 'Beneficios', icon: 'stars' }] : []),
-    ...(isAdmin ? [{ id: 'services', label: 'Servicios', icon: 'fitness_center' }] : []),
-    { id: 'gallery', label: 'Galería', icon: 'photo_library' },
-    ...(isAdmin ? [{ id: 'users', label: 'Usuarios', icon: 'people' }] : []),
+    ...(can('messages.manage') ? [{ id: 'messages', label: 'Mensajes', icon: 'mail' }] : []),
+    ...(can('benefits.manage') ? [{ id: 'benefits', label: 'Beneficios', icon: 'stars' }] : []),
+    ...(can('services.manage') ? [{ id: 'services', label: 'Servicios', icon: 'fitness_center' }] : []),
+    ...(can('coaches.manage') ? [{ id: 'coaches', label: 'Coaches', icon: 'groups' }] : []),
+    ...(can('team.manage') ? [{ id: 'team', label: 'Equipo', icon: 'badge' }] : []),
+    ...(can('events.manage') ? [{ id: 'events', label: 'Eventos', icon: 'event' }] : []),
+    ...(can('news.manage') ? [{ id: 'news', label: 'Noticias', icon: 'newspaper' }] : []),
+    ...(can('gallery.manage') ? [{ id: 'gallery', label: 'Galería', icon: 'photo_library' }] : []),
+    ...(can('users.manage') ? [{ id: 'users', label: 'Usuarios', icon: 'people' }] : []),
   ]
 
   return (
@@ -97,6 +116,10 @@ export default function Admin() {
           {activeTab === 'messages' && <Messages />}
           {activeTab === 'benefits' && <BenefitsPanel />}
           {activeTab === 'services' && <ServicesPanel />}
+          {activeTab === 'coaches' && <CoachesPanel />}
+          {activeTab === 'team' && <TeamPanel />}
+          {activeTab === 'events' && <EventsPanel />}
+          {activeTab === 'news' && <NewsPanel />}
           {activeTab === 'gallery' && <GalleryPanel />}
           {activeTab === 'users' && <Users />}
         </div>
@@ -106,40 +129,66 @@ export default function Admin() {
 }
 
 function Dashboard({ onNavigate }) {
-  const { isAdmin, isSecretary } = useAuth()
+  const { isAdmin, isSecretary, hasPermission } = useAuth()
   const { messages, loading: msgLoading } = useAdminMessages()
   const { images, loading: imgLoading } = useAdminGallery()
   const { users, loading: usrLoading } = useAdminUsers()
+  const { coaches, loading: coachesLoading } = useAdminCoaches()
+  const { team, loading: teamLoading } = useAdminTeam()
+  const { events, loading: eventsLoading } = useAdminEvents()
+  const { news, loading: newsLoading } = useAdminNews()
+
+  const can = (perm) => isAdmin || hasPermission(perm)
 
   const stats = [
-    {
+    ...(can('messages.manage') ? [{
       icon: 'mail', label: 'Mensajes', value: messages.length,
       sub: `${messages.filter(m => !m.read).length} sin leer`,
       color: 'bg-primary/10 text-primary', tab: 'messages',
-    },
-    ...(isAdmin ? [{
+    }] : []),
+    ...(can('benefits.manage') ? [{
       icon: 'stars', label: 'Beneficios', value: '5',
       sub: 'Arrastra para reordenar',
       color: 'bg-amber-500/10 text-amber-400', tab: 'benefits',
     }] : []),
-    ...(isAdmin ? [{
+    ...(can('services.manage') ? [{
       icon: 'fitness_center', label: 'Servicios', value: '5',
       sub: 'Editar contenido',
       color: 'bg-green-500/10 text-green-400', tab: 'services',
     }] : []),
-    {
+    ...(can('coaches.manage') ? [{
+      icon: 'groups', label: 'Coaches', value: coaches.length,
+      sub: 'Entrenadores personales',
+      color: 'bg-cyan-500/10 text-cyan-400', tab: 'coaches',
+    }] : []),
+    ...(can('team.manage') ? [{
+      icon: 'badge', label: 'Equipo', value: team.length,
+      sub: 'Personal administrativo',
+      color: 'bg-pink-500/10 text-pink-400', tab: 'team',
+    }] : []),
+    ...(can('events.manage') ? [{
+      icon: 'event', label: 'Eventos', value: events.length,
+      sub: 'Próximos eventos',
+      color: 'bg-orange-500/10 text-orange-400', tab: 'events',
+    }] : []),
+    ...(can('news.manage') ? [{
+      icon: 'newspaper', label: 'Noticias', value: news.length,
+      sub: 'Últimas novedades',
+      color: 'bg-indigo-500/10 text-indigo-400', tab: 'news',
+    }] : []),
+    ...(can('gallery.manage') ? [{
       icon: 'photo_library', label: 'Galería', value: images.length,
       sub: `${images.length} imagen${images.length !== 1 ? 'es' : ''}`,
       color: 'bg-blue-500/10 text-blue-400', tab: 'gallery',
-    },
-    ...(isAdmin ? [{
+    }] : []),
+    ...(can('users.manage') ? [{
       icon: 'people', label: 'Usuarios', value: users.length,
-      sub: `${users.filter(u => u.role === 'admin').length} admin · ${users.filter(u => u.role === 'secretaria').length} secretaria`,
+      sub: `${users.filter(u => u.role === 'admin').length} admin · ${users.filter(u => u.role === 'secretaria').length} secretaria${users.filter(u => u.disabled).length > 0 ? ` · ${users.filter(u => u.disabled).length} deshab.` : ''}`,
       color: 'bg-purple-500/10 text-purple-400', tab: 'users',
     }] : []),
   ]
 
-  const loading = msgLoading || imgLoading || usrLoading
+  const loading = msgLoading || imgLoading || usrLoading || coachesLoading || teamLoading || eventsLoading || newsLoading
 
   return (
     <div>
@@ -698,14 +747,152 @@ function GalleryPanel() {
   )
 }
 
+const ALL_PERMISSIONS = [
+  { id: 'admin.access', label: 'Acceso al panel', icon: 'admin_panel_settings' },
+  { id: 'messages.manage', label: 'Mensajes', icon: 'mail' },
+  { id: 'benefits.manage', label: 'Beneficios', icon: 'stars' },
+  { id: 'services.manage', label: 'Servicios', icon: 'fitness_center' },
+  { id: 'coaches.manage', label: 'Coaches', icon: 'groups' },
+  { id: 'team.manage', label: 'Equipo', icon: 'badge' },
+  { id: 'events.manage', label: 'Eventos', icon: 'event' },
+  { id: 'news.manage', label: 'Noticias', icon: 'newspaper' },
+  { id: 'gallery.manage', label: 'Galería', icon: 'photo_library' },
+  { id: 'users.manage', label: 'Usuarios', icon: 'people' },
+]
+
+function PermissionsModal({ userId, userName, onClose }) {
+  const { getUserPermissions, setPermission, removePermission } = useAdminUsers()
+  const [perms, setPerms] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState(null)
+
+  useEffect(() => {
+    getUserPermissions(userId).then(p => { setPerms(p); setLoading(false) }).catch(() => setLoading(false))
+  }, [userId])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2500)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  async function toggle(permId, has, label) {
+    const next = has ? 'revocado' : 'concedido'
+    setPerms(prev => has ? prev.filter(p => p !== permId) : [...prev, permId])
+    setToast({ type: next === 'concedido' ? 'success' : 'info', message: `Permiso "${label}" ${next}` })
+    try {
+      if (has) {
+        await removePermission(userId, permId)
+      } else {
+        await setPermission(userId, permId)
+      }
+    } catch {
+      setPerms(prev => has ? [...prev, permId] : prev.filter(p => p !== permId))
+      setToast({ type: 'error', message: `Error al actualizar permiso "${label}"` })
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="bg-surface-card border border-white/10 rounded-3xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h4 className="font-heading font-bold text-lg text-white">Permisos</h4>
+            <p className="font-body text-white/40 text-xs mt-0.5">{userName}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+            <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-10"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+        ) : (
+          <div className="space-y-1">
+            {ALL_PERMISSIONS.map(p => {
+              const has = perms.includes(p.id)
+              return (
+                <label key={p.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-colors">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${has ? 'bg-primary/20' : 'bg-white/5'}`}>
+                    <span className={`material-symbols-outlined text-base ${has ? 'text-primary' : 'text-white/30'}`}>{p.icon}</span>
+                  </div>
+                  <span className={`font-body text-sm flex-1 ${has ? 'text-white' : 'text-white/40'}`}>{p.label}</span>
+                  <div className={`w-10 h-6 rounded-full transition-all duration-300 relative ${has ? 'bg-primary' : 'bg-white/10'}`} onClick={() => toggle(p.id, has, p.label)}>
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-300 ${has ? 'left-[18px]' : 'left-0.5'}`} />
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+        )}
+
+        {toast && (
+          <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-lg font-body text-sm transition-all animate-fade-in ${
+            toast.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+            toast.type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+            'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+          }`}>
+            <span className="material-symbols-outlined text-sm">
+              {toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info'}
+            </span>
+            {toast.message}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function Users() {
-  const { users, allUsers, loading, search, setSearch, changeRole, adminCount, secretaryCount, userCount } = useAdminUsers()
-  const [changingId, setChangingId] = useState(null)
+  const { users, allUsers, loading, search, setSearch, changeRole, createUser, toggleDisabled, adminCount, secretaryCount, userCount, disabledCount } = useAdminUsers()
+  const [showNew, setShowNew] = useState(false)
+  const [newUser, setNewUser] = useState({ email: '', password: '', full_name: '', role: 'usuario' })
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [permsUser, setPermsUser] = useState(null)
+
+  async function handleCreate(e) {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!newUser.email || !newUser.password || !newUser.full_name) {
+      setError('Todos los campos son obligatorios')
+      return
+    }
+    setCreating(true)
+    try {
+      await createUser(newUser)
+      setSuccess(`Usuario ${newUser.email} creado correctamente`)
+      setNewUser({ email: '', password: '', full_name: '', role: 'usuario' })
+      setShowNew(false)
+    } catch (err) {
+      setError(err.message || 'Error al crear usuario')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function handleToggleDisabled(u) {
+    try {
+      await toggleDisabled(u.id, !u.disabled)
+    } catch {
+      alert('Error al cambiar estado')
+    }
+  }
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
 
   return (
     <div>
+      {permsUser && (
+        <PermissionsModal
+          userId={permsUser.id}
+          userName={permsUser.full_name || permsUser.email}
+          onClose={() => setPermsUser(null)}
+        />
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h3 className="font-heading font-bold text-2xl text-white">Usuarios</h3>
@@ -714,9 +901,33 @@ function Users() {
             <span className="text-primary"> {adminCount} admin</span> ·
             <span className="text-blue-400"> {secretaryCount} secretaria</span> ·
             <span className="text-white/50"> {userCount} usuario</span>
+            {disabledCount > 0 && <span className="text-red-400"> · {disabledCount} deshabilitado{disabledCount > 1 ? 's' : ''}</span>}
           </p>
         </div>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
+          <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'person_add'}</span>
+          {showNew ? 'Cancelar' : 'Crear usuario'}
+        </button>
       </div>
+
+      {showNew && (
+        <form onSubmit={handleCreate} className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
+          <h4 className="font-heading font-bold text-white text-sm">Nuevo usuario</h4>
+          <input type="email" value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} placeholder="Correo electrónico" required className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+          <input type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} placeholder="Contraseña" required className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+          <input type="text" value={newUser.full_name} onChange={e => setNewUser(p => ({ ...p, full_name: e.target.value }))} placeholder="Nombre completo" required className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+          <select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary">
+            <option value="usuario">Usuario</option>
+            <option value="secretaria">Secretaria</option>
+            <option value="admin">Admin</option>
+          </select>
+          {error && <p className="font-body text-red-400 text-xs">{error}</p>}
+          {success && <p className="font-body text-green-400 text-xs">{success}</p>}
+          <button type="submit" disabled={creating} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-50">
+            {creating ? 'Creando...' : 'Crear usuario'}
+          </button>
+        </form>
+      )}
 
       <div className="relative mb-6 max-w-xs">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 material-symbols-outlined text-lg">search</span>
@@ -734,21 +945,25 @@ function Users() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Nombre</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Usuario</th>
                 <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">ID</th>
                 <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Rol</th>
-                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3">Acción</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Estado</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {users.map(u => (
-                <tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                <tr key={u.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${u.disabled ? 'opacity-50' : ''}`}>
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <span className="font-body font-semibold text-primary text-xs">{u.full_name?.charAt(0) || '?'}</span>
                       </div>
-                      <p className="font-body text-white text-sm">{u.full_name || '—'}</p>
+                      <div>
+                        <p className="font-body text-white text-sm">{u.full_name || '—'}</p>
+                        {u.email && <p className="font-body text-white/30 text-xs">{u.email}</p>}
+                      </div>
                     </div>
                   </td>
                   <td className="py-3 pr-4"><p className="font-body text-white/30 text-xs font-mono">{u.id.slice(0, 12)}...</p></td>
@@ -761,6 +976,13 @@ function Users() {
                       {u.role}
                     </span>
                   </td>
+                  <td className="py-3 pr-4">
+                    {u.disabled ? (
+                      <span className="font-mono text-2xs bg-red-500/20 text-red-400 px-2.5 py-1 rounded-full">Deshabilitado</span>
+                    ) : (
+                      <span className="font-mono text-2xs bg-green-500/20 text-green-400 px-2.5 py-1 rounded-full">Activo</span>
+                    )}
+                  </td>
                   <td className="py-3">
                     <div className="flex items-center gap-2">
                       <select
@@ -772,12 +994,633 @@ function Users() {
                         <option value="secretaria">Secretaria</option>
                         <option value="admin">Admin</option>
                       </select>
+                      <button
+                        onClick={() => handleToggleDisabled(u)}
+                        className={`px-3 py-1.5 rounded-lg font-body text-xs transition-all ${
+                          u.disabled
+                            ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                            : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                        }`}
+                      >
+                        {u.disabled ? 'Habilitar' : 'Deshab.'}
+                      </button>
+                      <button
+                        onClick={() => setPermsUser(u)}
+                        className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-body text-xs hover:bg-primary/20 transition-all"
+                      >
+                        Permisos
+                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CoachesPanel() {
+  const { coaches, loading, create, update, remove } = useAdminCoaches()
+  const [editingId, setEditingId] = useState(null)
+  const [editData, setEditData] = useState({})
+  const [newData, setNewData] = useState({ name: '', bio: '', certifications: '', specialties: '' })
+  const [showNew, setShowNew] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
+
+  function startEdit(c) {
+    setEditingId(c.id)
+    setEditData({ name: c.name, photo_url: c.photo_url || '', bio: c.bio || '', certifications: c.certifications || '', specialties: c.specialties ? JSON.stringify(c.specialties) : '[]', active: c.active, sort_order: c.sort_order })
+  }
+
+  async function saveEdit(id) {
+    const data = { ...editData }
+    try { data.specialties = JSON.parse(editData.specialties || '[]') } catch { data.specialties = [] }
+    try { await update(id, data) }
+    catch { alert('Error al guardar') }
+    setEditingId(null)
+  }
+
+  async function handleCreate() {
+    if (!newData.name) return
+    const data = { ...newData }
+    try { data.specialties = JSON.parse(newData.specialties || '[]') } catch { data.specialties = [] }
+    try { await create(data); setShowNew(false); setNewData({ name: '', bio: '', certifications: '', specialties: '' }) }
+    catch { alert('Error al crear') }
+  }
+
+  async function handleDelete(id) {
+    try { await remove(id); setConfirmId(null) }
+    catch { alert('Error al eliminar') }
+  }
+
+  const fields = [
+    { key: 'name', label: 'Nombre', placeholder: 'Ej: Carlos Méndez' },
+    { key: 'photo_url', label: 'URL de foto', placeholder: 'https://...' },
+    { key: 'bio', label: 'Biografía', placeholder: 'Descripción del coach', area: true },
+    { key: 'certifications', label: 'Certificaciones', placeholder: 'Ej: CrossFit L1, NSCA-CPT' },
+    { key: 'specialties', label: 'Especialidades (JSON)', placeholder: '["Fuerza","CrossFit"]' },
+  ]
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-heading font-bold text-2xl text-white">Coaches</h3>
+          <p className="font-body text-white/40 text-xs mt-1">{coaches.length} elementos</p>
+        </div>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
+          <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'add'}</span>
+          {showNew ? 'Cancelar' : 'Nuevo coach'}
+        </button>
+      </div>
+
+      {showNew && (
+        <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
+          {fields.map(f => (
+            f.area ? (
+              <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={2} />
+            ) : (
+              <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+            )
+          ))}
+          <button onClick={handleCreate} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
+            Crear coach
+          </button>
+        </div>
+      )}
+
+      {coaches.length === 0 ? (
+        <div className="text-center py-16">
+          <span className="material-symbols-outlined text-4xl text-white/20 mb-3">groups</span>
+          <p className="font-body text-white/40">No hay coaches aún.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {coaches.map(c => (
+            <div key={c.id} className="bg-surface-card border border-white/5 rounded-2xl p-5 transition-all hover:border-white/20">
+              {editingId === c.id ? (
+                <div className="space-y-3">
+                  {fields.map(f => (
+                    <div key={f.key}>
+                      <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
+                      {f.area ? (
+                        <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
+                      ) : (
+                        <input type="text" value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editData.active} onChange={e => setEditData(p => ({ ...p, active: e.target.checked }))} className="w-4 h-4 accent-primary" />
+                      <span className="font-body text-white/70 text-sm">Activo</span>
+                    </label>
+                    <input type="number" value={editData.sort_order} onChange={e => setEditData(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} className="w-16 bg-surface-dark border border-white/10 rounded-lg px-2 py-1.5 font-body text-xs text-white focus:outline-none focus:border-primary" placeholder="Orden" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => saveEdit(c.id)} className="bg-primary text-surface-dark font-body font-semibold text-xs px-4 py-2 rounded-lg hover:bg-primary-hover transition-all">Guardar</button>
+                    <button onClick={() => setEditingId(null)} className="text-white/40 hover:text-white font-body text-xs px-4 py-2">Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {c.photo_url && (
+                      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src={c.photo_url} alt={c.name} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-body font-semibold text-white text-sm">{c.name}</p>
+                        {!c.active && <span className="font-body text-2xs text-white/30 border border-white/10 px-2 py-0.5 rounded">Inactivo</span>}
+                      </div>
+                      {c.specialties?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {c.specialties.map((s, i) => (
+                            <span key={i} className="font-mono text-2xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{s}</span>
+                          ))}
+                        </div>
+                      )}
+                      {c.bio && <p className="font-body text-white/50 text-xs mt-1.5 line-clamp-2">{c.bio}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => startEdit(c)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors">
+                      <span className="material-symbols-outlined text-white/60 text-sm">edit</span>
+                    </button>
+                    {confirmId === c.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => handleDelete(c.id)} className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600">
+                          <span className="material-symbols-outlined text-white text-sm">check</span>
+                        </button>
+                        <button onClick={() => setConfirmId(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                          <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmId(c.id)} className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center hover:bg-red-500/20 transition-colors">
+                        <span className="material-symbols-outlined text-red-400 text-sm">delete</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TeamPanel() {
+  const { team, loading, create, update, remove } = useAdminTeam()
+  const [editingId, setEditingId] = useState(null)
+  const [editData, setEditData] = useState({})
+  const [newData, setNewData] = useState({ name: '', role: '', bio: '', photo_url: '' })
+  const [showNew, setShowNew] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
+
+  function startEdit(t) {
+    setEditingId(t.id)
+    setEditData({ name: t.name, photo_url: t.photo_url || '', role: t.role || '', bio: t.bio || '', active: t.active, sort_order: t.sort_order })
+  }
+
+  async function saveEdit(id) {
+    try { await update(id, editData) }
+    catch { alert('Error al guardar') }
+    setEditingId(null)
+  }
+
+  async function handleCreate() {
+    if (!newData.name) return
+    try { await create(newData); setShowNew(false); setNewData({ name: '', role: '', bio: '', photo_url: '' }) }
+    catch { alert('Error al crear') }
+  }
+
+  async function handleDelete(id) {
+    try { await remove(id); setConfirmId(null) }
+    catch { alert('Error al eliminar') }
+  }
+
+  const fields = [
+    { key: 'name', label: 'Nombre', placeholder: 'Ej: María Fernández' },
+    { key: 'role', label: 'Rol', placeholder: 'Ej: Gerente General' },
+    { key: 'photo_url', label: 'URL de foto', placeholder: 'https://...' },
+    { key: 'bio', label: 'Biografía', placeholder: 'Descripción del miembro', area: true },
+  ]
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-heading font-bold text-2xl text-white">Equipo</h3>
+          <p className="font-body text-white/40 text-xs mt-1">{team.length} elementos</p>
+        </div>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
+          <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'add'}</span>
+          {showNew ? 'Cancelar' : 'Nuevo miembro'}
+        </button>
+      </div>
+
+      {showNew && (
+        <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
+          {fields.map(f => (
+            f.area ? (
+              <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={2} />
+            ) : (
+              <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+            )
+          ))}
+          <button onClick={handleCreate} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
+            Crear miembro
+          </button>
+        </div>
+      )}
+
+      {team.length === 0 ? (
+        <div className="text-center py-16">
+          <span className="material-symbols-outlined text-4xl text-white/20 mb-3">badge</span>
+          <p className="font-body text-white/40">No hay miembros aún.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {team.map(t => (
+            <div key={t.id} className="bg-surface-card border border-white/5 rounded-2xl p-5 transition-all hover:border-white/20">
+              {editingId === t.id ? (
+                <div className="space-y-3">
+                  {fields.map(f => (
+                    <div key={f.key}>
+                      <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
+                      {f.area ? (
+                        <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
+                      ) : (
+                        <input type="text" value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editData.active} onChange={e => setEditData(p => ({ ...p, active: e.target.checked }))} className="w-4 h-4 accent-primary" />
+                      <span className="font-body text-white/70 text-sm">Activo</span>
+                    </label>
+                    <input type="number" value={editData.sort_order} onChange={e => setEditData(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} className="w-16 bg-surface-dark border border-white/10 rounded-lg px-2 py-1.5 font-body text-xs text-white focus:outline-none focus:border-primary" placeholder="Orden" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => saveEdit(t.id)} className="bg-primary text-surface-dark font-body font-semibold text-xs px-4 py-2 rounded-lg hover:bg-primary-hover transition-all">Guardar</button>
+                    <button onClick={() => setEditingId(null)} className="text-white/40 hover:text-white font-body text-xs px-4 py-2">Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {t.photo_url && (
+                      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src={t.photo_url} alt={t.name} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-body font-semibold text-white text-sm">{t.name}</p>
+                        {!t.active && <span className="font-body text-2xs text-white/30 border border-white/10 px-2 py-0.5 rounded">Inactivo</span>}
+                      </div>
+                      {t.role && <span className="font-mono text-2xs text-primary">{t.role}</span>}
+                      {t.bio && <p className="font-body text-white/50 text-xs mt-1.5 line-clamp-2">{t.bio}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => startEdit(t)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors">
+                      <span className="material-symbols-outlined text-white/60 text-sm">edit</span>
+                    </button>
+                    {confirmId === t.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => handleDelete(t.id)} className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600">
+                          <span className="material-symbols-outlined text-white text-sm">check</span>
+                        </button>
+                        <button onClick={() => setConfirmId(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                          <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmId(t.id)} className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center hover:bg-red-500/20 transition-colors">
+                        <span className="material-symbols-outlined text-red-400 text-sm">delete</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EventsPanel() {
+  const { events, loading, create, update, remove } = useAdminEvents()
+  const [editingId, setEditingId] = useState(null)
+  const [editData, setEditData] = useState({})
+  const [newData, setNewData] = useState({ title: '', description: '', date: '', time: '', location: '', image_url: '' })
+  const [showNew, setShowNew] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
+
+  function startEdit(e) {
+    setEditingId(e.id)
+    setEditData({ title: e.title, description: e.description || '', date: e.date || '', time: e.time || '', location: e.location || '', image_url: e.image_url || '', active: e.active })
+  }
+
+  async function saveEdit(id) {
+    try { await update(id, editData) }
+    catch { alert('Error al guardar') }
+    setEditingId(null)
+  }
+
+  async function handleCreate() {
+    if (!newData.title) return
+    try { await create(newData); setShowNew(false); setNewData({ title: '', description: '', date: '', time: '', location: '', image_url: '' }) }
+    catch { alert('Error al crear') }
+  }
+
+  async function handleDelete(id) {
+    try { await remove(id); setConfirmId(null) }
+    catch { alert('Error al eliminar') }
+  }
+
+  const fields = [
+    { key: 'title', label: 'Título', placeholder: 'Ej: Torneo de CrossFit' },
+    { key: 'description', label: 'Descripción', placeholder: 'Descripción del evento', area: true },
+    { key: 'date', label: 'Fecha (YYYY-MM-DD)', placeholder: '2026-07-15' },
+    { key: 'time', label: 'Hora', placeholder: '09:00' },
+    { key: 'location', label: 'Ubicación', placeholder: 'ZonaFit Gym Principal' },
+    { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...' },
+  ]
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-heading font-bold text-2xl text-white">Eventos</h3>
+          <p className="font-body text-white/40 text-xs mt-1">{events.length} elementos</p>
+        </div>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
+          <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'add'}</span>
+          {showNew ? 'Cancelar' : 'Nuevo evento'}
+        </button>
+      </div>
+
+      {showNew && (
+        <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
+          {fields.map(f => (
+            f.area ? (
+              <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={2} />
+            ) : (
+              <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+            )
+          ))}
+          <button onClick={handleCreate} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
+            Crear evento
+          </button>
+        </div>
+      )}
+
+      {events.length === 0 ? (
+        <div className="text-center py-16">
+          <span className="material-symbols-outlined text-4xl text-white/20 mb-3">event</span>
+          <p className="font-body text-white/40">No hay eventos aún.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {events.map(e => (
+            <div key={e.id} className="bg-surface-card border border-white/5 rounded-2xl p-5 transition-all hover:border-white/20">
+              {editingId === e.id ? (
+                <div className="space-y-3">
+                  {fields.map(f => (
+                    <div key={f.key}>
+                      <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
+                      {f.area ? (
+                        <textarea value={editData[f.key]} onChange={e_ => setEditData(p => ({ ...p, [f.key]: e_.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
+                      ) : (
+                        <input type="text" value={editData[f.key]} onChange={e_ => setEditData(p => ({ ...p, [f.key]: e_.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editData.active} onChange={e_ => setEditData(p => ({ ...p, active: e_.target.checked }))} className="w-4 h-4 accent-primary" />
+                      <span className="font-body text-white/70 text-sm">Activo</span>
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => saveEdit(e.id)} className="bg-primary text-surface-dark font-body font-semibold text-xs px-4 py-2 rounded-lg hover:bg-primary-hover transition-all">Guardar</button>
+                    <button onClick={() => setEditingId(null)} className="text-white/40 hover:text-white font-body text-xs px-4 py-2">Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {e.image_url && (
+                      <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src={e.image_url} alt={e.title} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-body font-semibold text-white text-sm">{e.title}</p>
+                        {!e.active && <span className="font-body text-2xs text-white/30 border border-white/10 px-2 py-0.5 rounded">Inactivo</span>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        {e.date && <span className="font-body text-white/40 text-xs">{e.date}</span>}
+                        {e.time && <span className="font-body text-white/40 text-xs">{e.time.slice(0, 5)}</span>}
+                        {e.location && <span className="font-body text-white/40 text-xs">{e.location}</span>}
+                      </div>
+                      {e.description && <p className="font-body text-white/50 text-xs mt-1.5 line-clamp-2">{e.description}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => startEdit(e)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors">
+                      <span className="material-symbols-outlined text-white/60 text-sm">edit</span>
+                    </button>
+                    {confirmId === e.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => handleDelete(e.id)} className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600">
+                          <span className="material-symbols-outlined text-white text-sm">check</span>
+                        </button>
+                        <button onClick={() => setConfirmId(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                          <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmId(e.id)} className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center hover:bg-red-500/20 transition-colors">
+                        <span className="material-symbols-outlined text-red-400 text-sm">delete</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function NewsPanel() {
+  const { news, loading, create, update, remove } = useAdminNews()
+  const [editingId, setEditingId] = useState(null)
+  const [editData, setEditData] = useState({})
+  const [newData, setNewData] = useState({ title: '', summary: '', content: '', image_url: '', link: '', author: '' })
+  const [showNew, setShowNew] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
+
+  function startEdit(n) {
+    setEditingId(n.id)
+    setEditData({ title: n.title, summary: n.summary || '', content: n.content || '', image_url: n.image_url || '', link: n.link || '', author: n.author || '', date: n.date || '', active: n.active })
+  }
+
+  async function saveEdit(id) {
+    try { await update(id, editData) }
+    catch { alert('Error al guardar') }
+    setEditingId(null)
+  }
+
+  async function handleCreate() {
+    if (!newData.title) return
+    try { await create(newData); setShowNew(false); setNewData({ title: '', summary: '', content: '', image_url: '', link: '', author: '' }) }
+    catch { alert('Error al crear') }
+  }
+
+  async function handleDelete(id) {
+    try { await remove(id); setConfirmId(null) }
+    catch { alert('Error al eliminar') }
+  }
+
+  const fields = [
+    { key: 'title', label: 'Título', placeholder: 'Ej: Nuevo equipamiento' },
+    { key: 'summary', label: 'Resumen', placeholder: 'Breve descripción de la noticia' },
+    { key: 'content', label: 'Contenido completo', placeholder: 'Contenido...', area: true },
+    { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...' },
+    { key: 'link', label: 'Enlace externo', placeholder: 'https://...' },
+    { key: 'author', label: 'Autor', placeholder: 'ZonaFit' },
+    { key: 'date', label: 'Fecha (YYYY-MM-DD)', placeholder: '2026-05-28' },
+  ]
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-heading font-bold text-2xl text-white">Noticias</h3>
+          <p className="font-body text-white/40 text-xs mt-1">{news.length} elementos</p>
+        </div>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
+          <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'add'}</span>
+          {showNew ? 'Cancelar' : 'Nueva noticia'}
+        </button>
+      </div>
+
+      {showNew && (
+        <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
+          {fields.map(f => (
+            f.area ? (
+              <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={3} />
+            ) : (
+              <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+            )
+          ))}
+          <button onClick={handleCreate} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
+            Crear noticia
+          </button>
+        </div>
+      )}
+
+      {news.length === 0 ? (
+        <div className="text-center py-16">
+          <span className="material-symbols-outlined text-4xl text-white/20 mb-3">newspaper</span>
+          <p className="font-body text-white/40">No hay noticias aún.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {news.map(n => (
+            <div key={n.id} className="bg-surface-card border border-white/5 rounded-2xl p-5 transition-all hover:border-white/20">
+              {editingId === n.id ? (
+                <div className="space-y-3">
+                  {fields.map(f => (
+                    <div key={f.key}>
+                      <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
+                      {f.area ? (
+                        <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={3} />
+                      ) : (
+                        <input type="text" value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editData.active} onChange={e => setEditData(p => ({ ...p, active: e.target.checked }))} className="w-4 h-4 accent-primary" />
+                      <span className="font-body text-white/70 text-sm">Activo</span>
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => saveEdit(n.id)} className="bg-primary text-surface-dark font-body font-semibold text-xs px-4 py-2 rounded-lg hover:bg-primary-hover transition-all">Guardar</button>
+                    <button onClick={() => setEditingId(null)} className="text-white/40 hover:text-white font-body text-xs px-4 py-2">Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {n.image_url && (
+                      <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src={n.image_url} alt={n.title} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-body font-semibold text-white text-sm">{n.title}</p>
+                        {!n.active && <span className="font-body text-2xs text-white/30 border border-white/10 px-2 py-0.5 rounded">Inactivo</span>}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {n.date && <span className="font-body text-white/40 text-xs">{n.date}</span>}
+                        {n.author && <span className="font-body text-white/40 text-xs">{n.author}</span>}
+                      </div>
+                      {n.summary && <p className="font-body text-white/50 text-xs mt-1.5 line-clamp-2">{n.summary}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => startEdit(n)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors">
+                      <span className="material-symbols-outlined text-white/60 text-sm">edit</span>
+                    </button>
+                    {confirmId === n.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => handleDelete(n.id)} className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600">
+                          <span className="material-symbols-outlined text-white text-sm">check</span>
+                        </button>
+                        <button onClick={() => setConfirmId(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                          <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmId(n.id)} className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center hover:bg-red-500/20 transition-colors">
+                        <span className="material-symbols-outlined text-red-400 text-sm">delete</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

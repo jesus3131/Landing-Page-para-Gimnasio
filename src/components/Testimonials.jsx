@@ -1,9 +1,7 @@
 import useTestimonials from '../controllers/useTestimonials'
 
 export default function Testimonials() {
-  const { testimonials, loading } = useTestimonials()
-
-  if (loading || testimonials.length === 0) return null
+  const { testimonials } = useTestimonials()
 
   return (
     <section id="testimonios" className="relative py-24 lg:py-32 bg-surface-card/50">
