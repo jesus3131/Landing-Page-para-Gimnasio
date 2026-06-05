@@ -43,7 +43,7 @@ export default function Plans() {
                   {plan.name}
                 </p>
                 <p className="font-heading font-black text-4xl text-white mb-1">
-                  ${plan.price}
+                  ${plan.price.toLocaleString('es-CO')}
                   <span className="font-body font-normal text-white/40 text-sm"> /{plan.period === 'month' ? 'mes' : plan.period}</span>
                 </p>
                 {plan.description && (

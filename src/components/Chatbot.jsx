@@ -21,7 +21,7 @@ const steps = [
   },
   {
     id: 'info',
-    bot: 'Estamos abiertos de Lunes a Viernes 6am — 11pm, Sábados 7am — 8pm y Domingos 8am — 2pm.\n\nTenemos planes desde $29/mes. ¿Te gustaría que un asesor te dé más detalles?',
+    bot: 'Estamos abiertos de Lunes a Viernes 6am — 11pm, Sábados 7am — 8pm y Domingos 8am — 2pm.\n\nTenemos planes desde $79.000/mes. ¿Te gustaría que un asesor te dé más detalles?',
     options: [
       { label: 'Sí, contáctame', next: 'whatsapp' },
       { label: 'Ver planes', next: 'planes' },
@@ -30,7 +30,7 @@ const steps = [
   },
   {
     id: 'planes',
-    bot: 'Ofrecemos 3 planes:\n\n• Básico $29/mes — Acceso al gym, 5 clases\n• Profesional $49/mes — Ilimitado + Piscina & Spa\n• Premium $79/mes — 24/7 + Entrenador personal\n\n¿Te interesa alguno?',
+    bot: 'Ofrecemos 3 planes:\n\n• Básico $79.000/mes — Acceso al gym, 5 clases\n• Profesional $129.000/mes — Ilimitado + Piscina & Spa\n• Premium $199.000/mes — 24/7 + Entrenador personal\n\n¿Te interesa alguno?',
     options: [
       { label: 'Sí, quiero contratar', next: 'whatsapp' },
       { label: 'Más información', next: 'asesor' },
@@ -61,7 +61,7 @@ export default function Chatbot() {
   function handleOption(option) {
     setHistory(prev => [...prev, { user: option.label, bot: step.bot }])
     if (option.next === 'whatsapp') {
-      const phone = '521234567890'
+      const phone = '573101234567'
       const msg = encodeURIComponent('¡Hola! Quiero más información sobre ZONAFIT.')
       window.open(`https://wa.me/${phone}?text=${msg}`, '_blank')
       setCurrentStep('welcome')

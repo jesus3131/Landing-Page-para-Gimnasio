@@ -1,9 +1,9 @@
 import useContact from '../controllers/useContact'
 
 const contactInfo = [
-  { icon: 'call', label: 'Teléfono', value: '+52 55 1234 5678' },
-  { icon: 'mail', label: 'Correo', value: 'hola@zonafit.mx' },
-  { icon: 'location_on', label: 'Ubicación', value: 'Av. Reforma 245, Col. Juárez, CDMX' },
+  { icon: 'call', label: 'Teléfono', value: '+57 310 123 4567' },
+  { icon: 'mail', label: 'Correo', value: 'hola@zonafitcolombia.com' },
+  { icon: 'location_on', label: 'Ubicación', value: 'Cra. 6 #58-12, Montería, Córdoba, Colombia' },
 ]
 
 export default function Contact() {

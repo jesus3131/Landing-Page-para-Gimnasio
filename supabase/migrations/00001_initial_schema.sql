@@ -194,8 +194,8 @@ insert into public.testimonials (author, role, initials, quote, rating, sort_ord
   ('Andrea García', 'Miembro desde 2022', 'AG', 'El ambiente es espectacular. Todos son bienvenidos sin importar tu nivel. ZONAFIT no es solo un gimnasio, es una familia.', 5, 3)
 on conflict do nothing;
 
-insert into public.plans (name, slug, price, description, featured, sort_order) values
-  ('Básico', 'basico', 29.00, 'Acceso al gym 6am-10pm, 5 clases grupales, vestidores', false, 1),
-  ('Profesional', 'profesional', 49.00, 'Acceso ilimitado, clases ilimitadas, piscina & spa', true, 2),
-  ('Premium', 'premium', 79.00, 'Acceso 24/7, clases ilimitadas, 12 sesiones de entrenador personal', false, 3)
+insert into public.plans (name, slug, price, currency, description, featured, sort_order) values
+  ('Básico', 'basico', 79.00, 'COP', 'Acceso al gym 6am-10pm, 5 clases grupales, vestidores', false, 1),
+  ('Profesional', 'profesional', 129.00, 'COP', 'Acceso ilimitado, clases ilimitadas, piscina & spa', true, 2),
+  ('Premium', 'premium', 199.00, 'COP', 'Acceso 24/7, clases ilimitadas, 12 sesiones de entrenador personal', false, 3)
 on conflict (slug) do nothing;

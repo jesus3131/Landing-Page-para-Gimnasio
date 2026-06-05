@@ -1360,7 +1360,7 @@ function EventsPanel() {
     { key: 'description', label: 'Descripción', placeholder: 'Descripción del evento', area: true },
     { key: 'date', label: 'Fecha (YYYY-MM-DD)', placeholder: '2026-07-15' },
     { key: 'time', label: 'Hora', placeholder: '09:00' },
-    { key: 'location', label: 'Ubicación', placeholder: 'ZonaFit Gym Principal' },
+    { key: 'location', label: 'Ubicación', placeholder: 'ZonaFit Montería' },
     { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...' },
   ]
 

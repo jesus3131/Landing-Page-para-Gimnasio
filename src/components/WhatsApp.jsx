@@ -1,5 +1,5 @@
 export default function WhatsApp() {
-  const phone = '521234567890'
+  const phone = '573101234567'
   const message = encodeURIComponent('¡Hola! Quiero más información sobre ZONAFIT.')
 
   return (
