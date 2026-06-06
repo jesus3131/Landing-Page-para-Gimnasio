@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
+import ImageField from './ImageField'
 import useAdminMessages from '../controllers/useAdminMessages'
 import useAdminGallery from '../controllers/useAdminGallery'
 import useAdminUsers from '../controllers/useAdminUsers'
@@ -347,13 +348,13 @@ function BenefitsPanel() {
   const { benefits, loading, create, update, remove } = useAdminBenefits()
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
-  const [newData, setNewData] = useState({ title: '', description: '', icon: '', stat: '', stat_label: '' })
+  const [newData, setNewData] = useState({ title: '', description: '', icon: '', image_url: '', stat: '', stat_label: '' })
   const [showNew, setShowNew] = useState(false)
   const [confirmId, setConfirmId] = useState(null)
 
   function startEdit(b) {
     setEditingId(b.id)
-    setEditData({ title: b.title, description: b.description, icon: b.icon, stat: b.stat, stat_label: b.stat_label, active: b.active, sort_order: b.sort_order })
+    setEditData({ title: b.title, description: b.description, icon: b.icon, image_url: b.image_url || '', stat: b.stat, stat_label: b.stat_label, active: b.active, sort_order: b.sort_order })
   }
 
   async function saveEdit(id) {
@@ -364,7 +365,7 @@ function BenefitsPanel() {
 
   async function handleCreate() {
     if (!newData.title) return
-    try { await create(newData); setShowNew(false); setNewData({ title: '', description: '', icon: '', stat: '', stat_label: '' }) }
+    try { await create(newData); setShowNew(false); setNewData({ title: '', description: '', icon: '', image_url: '', stat: '', stat_label: '' }) }
     catch { alert('Error al crear') }
   }
 
@@ -377,6 +378,7 @@ function BenefitsPanel() {
     { key: 'title', label: 'Título', placeholder: 'Ej: Equipos de última generación' },
     { key: 'description', label: 'Descripción', placeholder: 'Descripción del beneficio' },
     { key: 'icon', label: 'Icono (Material Symbol)', placeholder: 'Ej: fitness_center' },
+    { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...', type: 'image' },
     { key: 'stat', label: 'Estadística', placeholder: 'Ej: +50' },
     { key: 'stat_label', label: 'Etiqueta de estadística', placeholder: 'Ej: máquinas' },
   ]
@@ -399,7 +401,11 @@ function BenefitsPanel() {
       {showNew && (
         <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
           {fields.map(f => (
-            <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+            f.type === 'image' ? (
+              <ImageField key={f.key} value={newData[f.key] || ''} onChange={v => setNewData(p => ({ ...p, [f.key]: v }))} label={f.label} />
+            ) : (
+              <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+            )
           ))}
           <button onClick={handleCreate} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
             Crear beneficio
@@ -421,7 +427,9 @@ function BenefitsPanel() {
                   {fields.map(f => (
                     <div key={f.key}>
                       <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
-                      {f.key === 'description' ? (
+                      {f.type === 'image' ? (
+                        <ImageField value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
+                      ) : f.key === 'description' ? (
                         <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
                       ) : (
                         <input type="text" value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
@@ -522,12 +530,24 @@ function ServicesPanel() {
     { key: 'title', label: 'Título', placeholder: 'Ej: Musculación' },
     { key: 'description', label: 'Descripción', placeholder: 'Descripción del servicio' },
     { key: 'icon', label: 'Icono (Material Symbol)', placeholder: 'Ej: fitness_center' },
-    { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...' },
+    { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...', type: 'image' },
     { key: 'tag', label: 'Etiqueta', placeholder: 'Ej: Fuerza' },
     { key: 'tag_style', label: 'Estilo de etiqueta (Tailwind)', placeholder: 'bg-primary/20 text-primary' },
   ]
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+
+  const renderField = (f, data, setData) => {
+    if (f.area) return (
+      <textarea key={f.key} value={data[f.key]} onChange={e => setData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={2} />
+    )
+    if (f.type === 'image') return (
+      <ImageField key={f.key} value={data[f.key] || ''} onChange={v => setData(p => ({ ...p, [f.key]: v }))} label={f.label} />
+    )
+    return (
+      <input key={f.key} type="text" value={data[f.key] || ''} onChange={e => setData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+    )
+  }
 
   return (
     <div>
@@ -544,9 +564,7 @@ function ServicesPanel() {
 
       {showNew && (
         <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
-          {fields.map(f => (
-            <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
-          ))}
+          {fields.map(f => renderField(f, newData, setNewData))}
           <button onClick={handleCreate} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
             Crear servicio
           </button>
@@ -567,7 +585,9 @@ function ServicesPanel() {
                   {fields.map(f => (
                     <div key={f.key}>
                       <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
-                      {f.key === 'description' ? (
+                      {f.type === 'image' ? (
+                        <ImageField value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
+                      ) : f.area || f.key === 'description' ? (
                         <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
                       ) : (
                         <input type="text" value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
@@ -1081,7 +1101,7 @@ function CoachesPanel() {
 
   const fields = [
     { key: 'name', label: 'Nombre', placeholder: 'Ej: Carlos Méndez' },
-    { key: 'photo_url', label: 'URL de foto', placeholder: 'https://...' },
+    { key: 'photo_url', label: 'URL de foto', placeholder: 'https://...', type: 'image' },
     { key: 'bio', label: 'Biografía', placeholder: 'Descripción del coach', area: true },
     { key: 'certifications', label: 'Certificaciones', placeholder: 'Ej: CrossFit L1, NSCA-CPT' },
     { key: 'specialties', label: 'Especialidades (JSON)', placeholder: '["Fuerza","CrossFit"]' },
@@ -1107,6 +1127,8 @@ function CoachesPanel() {
           {fields.map(f => (
             f.area ? (
               <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={2} />
+            ) : f.type === 'image' ? (
+              <ImageField key={f.key} value={newData[f.key] || ''} onChange={v => setNewData(p => ({ ...p, [f.key]: v }))} label={f.label} />
             ) : (
               <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
             )
@@ -1131,7 +1153,9 @@ function CoachesPanel() {
                   {fields.map(f => (
                     <div key={f.key}>
                       <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
-                      {f.area ? (
+                      {f.type === 'image' ? (
+                        <ImageField value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
+                      ) : f.area ? (
                         <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
                       ) : (
                         <input type="text" value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
@@ -1235,7 +1259,7 @@ function TeamPanel() {
   const fields = [
     { key: 'name', label: 'Nombre', placeholder: 'Ej: María Fernández' },
     { key: 'role', label: 'Rol', placeholder: 'Ej: Gerente General' },
-    { key: 'photo_url', label: 'URL de foto', placeholder: 'https://...' },
+    { key: 'photo_url', label: 'URL de foto', placeholder: 'https://...', type: 'image' },
     { key: 'bio', label: 'Biografía', placeholder: 'Descripción del miembro', area: true },
   ]
 
@@ -1259,6 +1283,8 @@ function TeamPanel() {
           {fields.map(f => (
             f.area ? (
               <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={2} />
+            ) : f.type === 'image' ? (
+              <ImageField key={f.key} value={newData[f.key] || ''} onChange={v => setNewData(p => ({ ...p, [f.key]: v }))} label={f.label} />
             ) : (
               <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
             )
@@ -1283,7 +1309,9 @@ function TeamPanel() {
                   {fields.map(f => (
                     <div key={f.key}>
                       <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
-                      {f.area ? (
+                      {f.type === 'image' ? (
+                        <ImageField value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
+                      ) : f.area ? (
                         <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
                       ) : (
                         <input type="text" value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
@@ -1384,7 +1412,7 @@ function EventsPanel() {
     { key: 'date', label: 'Fecha (YYYY-MM-DD)', placeholder: '2026-07-15' },
     { key: 'time', label: 'Hora', placeholder: '09:00' },
     { key: 'location', label: 'Ubicación', placeholder: 'ZonaFit Montería' },
-    { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...' },
+    { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...', type: 'image' },
   ]
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
@@ -1407,6 +1435,8 @@ function EventsPanel() {
           {fields.map(f => (
             f.area ? (
               <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={2} />
+            ) : f.type === 'image' ? (
+              <ImageField key={f.key} value={newData[f.key] || ''} onChange={v => setNewData(p => ({ ...p, [f.key]: v }))} label={f.label} />
             ) : (
               <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
             )
@@ -1431,7 +1461,9 @@ function EventsPanel() {
                   {fields.map(f => (
                     <div key={f.key}>
                       <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
-                      {f.area ? (
+                      {f.type === 'image' ? (
+                        <ImageField value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
+                      ) : f.area ? (
                         <textarea value={editData[f.key]} onChange={e_ => setEditData(p => ({ ...p, [f.key]: e_.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
                       ) : (
                         <input type="text" value={editData[f.key]} onChange={e_ => setEditData(p => ({ ...p, [f.key]: e_.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
@@ -1533,7 +1565,7 @@ function NewsPanel() {
     { key: 'title', label: 'Título', placeholder: 'Ej: Nuevo equipamiento' },
     { key: 'summary', label: 'Resumen', placeholder: 'Breve descripción de la noticia' },
     { key: 'content', label: 'Contenido completo', placeholder: 'Contenido...', area: true },
-    { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...' },
+    { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...', type: 'image' },
     { key: 'link', label: 'Enlace externo', placeholder: 'https://...' },
     { key: 'author', label: 'Autor', placeholder: 'ZonaFit' },
     { key: 'date', label: 'Fecha (YYYY-MM-DD)', placeholder: '2026-05-28' },
@@ -1559,6 +1591,8 @@ function NewsPanel() {
           {fields.map(f => (
             f.area ? (
               <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={3} />
+            ) : f.type === 'image' ? (
+              <ImageField key={f.key} value={newData[f.key] || ''} onChange={v => setNewData(p => ({ ...p, [f.key]: v }))} label={f.label} />
             ) : (
               <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
             )
@@ -1583,7 +1617,9 @@ function NewsPanel() {
                   {fields.map(f => (
                     <div key={f.key}>
                       <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
-                      {f.area ? (
+                      {f.type === 'image' ? (
+                        <ImageField value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
+                      ) : f.area ? (
                         <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={3} />
                       ) : (
                         <input type="text" value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
