@@ -611,7 +611,12 @@ function ServicesPanel() {
               ) : (
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
-                    {s.image_url && (
+                    {s.icon && (
+                      <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="material-symbols-outlined text-primary text-lg">{s.icon}</span>
+                      </div>
+                    )}
+                    {!s.icon && s.image_url && (
                       <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
                         <img src={s.image_url} alt={s.title} className="w-full h-full object-cover" />
                       </div>
@@ -1484,7 +1489,12 @@ function EventsPanel() {
               ) : (
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
-                    {e.image_url && (
+                    {e.icon && (
+                      <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="material-symbols-outlined text-primary text-lg">{e.icon}</span>
+                      </div>
+                    )}
+                    {!e.icon && e.image_url && (
                       <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
                         <img src={e.image_url} alt={e.title} className="w-full h-full object-cover" />
                       </div>
