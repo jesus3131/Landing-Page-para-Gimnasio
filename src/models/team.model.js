@@ -35,6 +35,6 @@ export async function updateTeamMember(id, fields) {
 
 export async function deleteTeamMember(id) {
   const { error } = await supabase
-    .from('team').delete().eq('id', id)
+    .from('team').update({ active: false }).eq('id', id)
   if (error) throw error
 }

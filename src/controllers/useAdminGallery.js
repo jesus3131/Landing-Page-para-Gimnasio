@@ -122,11 +122,11 @@ export default function useAdminGallery() {
 
   async function remove(img) {
     try {
-      await galleryModel.deleteGalleryImage(img.id, img.storage_path)
-      setImages(prev => prev.filter(i => i.id !== img.id))
-      setToast({ type: 'success', message: 'Imagen eliminada' })
+      await galleryModel.softDeleteGalleryImage(img.id)
+      setImages(prev => prev.map(i => i.id === img.id ? { ...i, active: false } : i))
+      setToast({ type: 'success', message: 'Imagen inhabilitada' })
     } catch (e) {
-      setToast({ type: 'error', message: 'Error al eliminar' })
+      setToast({ type: 'error', message: 'Error al inhabilitar' })
       throw e
     }
   }

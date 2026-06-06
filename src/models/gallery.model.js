@@ -60,10 +60,7 @@ export async function updateGalleryImage(id, fields) {
   if (error) throw error
 }
 
-export async function deleteGalleryImage(id, storagePath) {
-  if (storagePath) {
-    await supabase.storage.from('gallery').remove([storagePath])
-  }
-  const { error } = await supabase.from('gallery').delete().eq('id', id)
+export async function softDeleteGalleryImage(id) {
+  const { error } = await supabase.from('gallery').update({ active: false }).eq('id', id)
   if (error) throw error
 }

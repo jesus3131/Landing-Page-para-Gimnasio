@@ -34,6 +34,6 @@ export async function updateNewsItem(id, fields) {
 
 export async function deleteNewsItem(id) {
   const { error } = await supabase
-    .from('news').delete().eq('id', id)
+    .from('news').update({ active: false }).eq('id', id)
   if (error) throw error
 }

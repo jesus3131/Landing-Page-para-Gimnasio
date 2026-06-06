@@ -35,6 +35,6 @@ export async function updateBenefit(id, fields) {
 
 export async function deleteBenefit(id) {
   const { error } = await supabase
-    .from('benefits').delete().eq('id', id)
+    .from('benefits').update({ active: false }).eq('id', id)
   if (error) throw error
 }

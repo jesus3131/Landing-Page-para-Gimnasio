@@ -240,7 +240,7 @@ function Messages() {
 
   async function handleDelete(id) {
     try { await remove(id) }
-    catch { alert('Error al eliminar') }
+    catch { alert('Error al inhabilitar') }
     setConfirmId(null)
   }
 
@@ -371,7 +371,7 @@ function BenefitsPanel() {
 
   async function handleDelete(id) {
     try { await remove(id); setConfirmId(null) }
-    catch { alert('Error al eliminar') }
+    catch { alert('Error al inhabilitar') }
   }
 
   const fields = [
@@ -523,7 +523,7 @@ function ServicesPanel() {
 
   async function handleDelete(id) {
     try { await remove(id); setConfirmId(null) }
-    catch { alert('Error al eliminar') }
+    catch { alert('Error al inhabilitar') }
   }
 
   const fields = [
@@ -717,8 +717,11 @@ function GalleryPanel() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {images.map(img => (
-            <div key={img.id} className="bg-surface-card border border-white/5 rounded-2xl overflow-hidden group">
+            <div key={img.id} className={`bg-surface-card border rounded-2xl overflow-hidden group ${img.active === false ? 'border-red-500/30 opacity-60' : 'border-white/5'}`}>
               <div className="aspect-square relative overflow-hidden">
+                {img.active === false && (
+                  <div className="absolute top-2 left-2 z-10 bg-red-500/80 text-white font-mono text-2xs px-2 py-0.5 rounded-full">Inactivo</div>
+                )}
                 <img src={img.image_url} alt={img.alt} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                   <button onClick={() => startEdit(img)} className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
@@ -1096,7 +1099,7 @@ function CoachesPanel() {
 
   async function handleDelete(id) {
     try { await remove(id); setConfirmId(null) }
-    catch { alert('Error al eliminar') }
+    catch { alert('Error al inhabilitar') }
   }
 
   const fields = [
@@ -1253,7 +1256,7 @@ function TeamPanel() {
 
   async function handleDelete(id) {
     try { await remove(id); setConfirmId(null) }
-    catch { alert('Error al eliminar') }
+    catch { alert('Error al inhabilitar') }
   }
 
   const fields = [
@@ -1403,7 +1406,7 @@ function EventsPanel() {
 
   async function handleDelete(id) {
     try { await remove(id); setConfirmId(null) }
-    catch { alert('Error al eliminar') }
+    catch { alert('Error al inhabilitar') }
   }
 
   const fields = [
@@ -1558,7 +1561,7 @@ function NewsPanel() {
 
   async function handleDelete(id) {
     try { await remove(id); setConfirmId(null) }
-    catch { alert('Error al eliminar') }
+    catch { alert('Error al inhabilitar') }
   }
 
   const fields = [
