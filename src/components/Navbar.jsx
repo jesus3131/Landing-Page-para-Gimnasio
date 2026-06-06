@@ -88,37 +88,42 @@ export default function Navbar({ onLoginClick, onAdminClick }) {
       </div>
 
       <div
-        className={`lg:hidden fixed left-0 w-full bg-surface-dark/98 backdrop-blur-md border-t border-white/10 transition-all duration-300 overflow-y-auto ${
-          menuOpen ? 'opacity-100 visible max-h-[calc(100vh-3.5rem)]' : 'opacity-0 invisible pointer-events-none max-h-0'
+        className={`lg:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-all duration-300 ${
+          menuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
         }`}
-        style={{ top: '100%' }}
+        onClick={closeMenu}
+      />
+
+      <div
+        className={`lg:hidden absolute left-0 w-full bg-surface-dark/98 backdrop-blur-md border-t border-white/10 shadow-2xl shadow-black/40 transition-all duration-300 origin-top ${
+          menuOpen ? 'opacity-100 visible scale-y-100' : 'opacity-0 invisible pointer-events-none scale-y-0'
+        }`}
+        style={{ top: '100%', maxHeight: 'calc(100dvh - 3.5rem)', overflowY: 'auto' }}
       >
         <ul className="flex flex-col p-6 gap-5">
           {navLinks.map((link) => (
             <li key={link.href}>
-              <a href={link.href} onClick={closeMenu} className="text-white/80 hover:text-white font-body font-medium text-base transition-colors">
+              <a href={link.href} onClick={closeMenu} className="text-white/80 hover:text-white font-body font-medium text-base transition-colors block py-1">
                 {link.label}
               </a>
             </li>
           ))}
           {canManage && (
             <li>
-              <button onClick={() => { closeMenu(); onAdminClick() }} className="text-primary font-body font-medium text-base">
+              <button onClick={() => { closeMenu(); onAdminClick() }} className="text-primary font-body font-medium text-base hover:text-primary-hover transition-colors w-full text-left py-1">
                 Panel Admin
               </button>
             </li>
           )}
-          <li>
+          <li className="border-t border-white/5 pt-4">
             {user ? (
-              <span className="text-white/40 font-body text-sm">Hola, {profile?.full_name}</span>
+              <span className="text-white/40 font-body text-sm block mb-3">Hola, {profile?.full_name}</span>
             ) : (
-              <button onClick={() => { closeMenu(); onLoginClick() }} className="font-body text-white/50 hover:text-white text-sm transition-colors">
+              <button onClick={() => { closeMenu(); onLoginClick() }} className="font-body text-white/50 hover:text-white text-sm transition-colors w-full text-left mb-3">
                 Iniciar sesión
               </button>
             )}
-          </li>
-          <li>
-            <a href="#contacto" onClick={closeMenu} className="inline-block bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-lg text-center w-full">
+            <a href="#contacto" onClick={closeMenu} className="inline-block bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-3 rounded-xl text-center w-full hover:bg-primary-hover transition-all">
               Únete Ahora
             </a>
           </li>
