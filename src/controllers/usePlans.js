@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { getPlans, getPlanFeatures } from '../models/plans.model'
 
 const fallbackPlans = [
@@ -11,24 +12,32 @@ export default function usePlans() {
   const [plans, setPlans] = useState(fallbackPlans)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
+  const loadPlans = useCallback(async () => {
     setLoading(true)
-    ;(async () => {
-      try {
-        const plansData = await getPlans()
-        if (plansData?.length > 0) {
-          const withFeatures = await Promise.all(
-            plansData.map(async (plan) => {
-              const features = await getPlanFeatures(plan.id)
-              return { ...plan, features: features || [] }
-            })
-          )
-          setPlans(withFeatures)
-        }
-      } catch { /* use fallback */ }
-      finally { setLoading(false) }
-    })()
+    try {
+      const plansData = await getPlans()
+      if (plansData?.length > 0) {
+        const withFeatures = await Promise.all(
+          plansData.map(async (plan) => {
+            const features = await getPlanFeatures(plan.id)
+            return { ...plan, features: features || [] }
+          })
+        )
+        setPlans(withFeatures)
+      }
+    } catch {}
+    finally { setLoading(false) }
   }, [])
+
+  useEffect(() => { loadPlans() }, [loadPlans])
+
+  useEffect(() => {
+    const channel = supabase.channel('plans-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'plans' }, () => loadPlans())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'plan_features' }, () => loadPlans())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [loadPlans])
 
   return { plans, loading }
 }

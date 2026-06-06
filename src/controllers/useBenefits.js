@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { getBenefits } from '../models/benefits.model'
 
 const fallback = [
@@ -13,13 +14,23 @@ export default function useBenefits() {
   const [benefits, setBenefits] = useState(fallback)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
+  const loadBenefits = useCallback(async () => {
     setLoading(true)
-    getBenefits()
-      .then(data => { if (data?.length > 0) setBenefits(data) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    try {
+      const data = await getBenefits()
+      if (data?.length > 0) setBenefits(data)
+    } catch {}
+    finally { setLoading(false) }
   }, [])
+
+  useEffect(() => { loadBenefits() }, [loadBenefits])
+
+  useEffect(() => {
+    const channel = supabase.channel('benefits-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'benefits' }, () => loadBenefits())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [loadBenefits])
 
   return { benefits, loading }
 }

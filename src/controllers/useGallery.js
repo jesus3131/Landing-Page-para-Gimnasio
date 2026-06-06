@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { getGalleryImages } from '../models/gallery.model'
 
 const fallback = [
@@ -13,13 +14,23 @@ export default function useGallery() {
   const [images, setImages] = useState(fallback)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
+  const loadGallery = useCallback(async () => {
     setLoading(true)
-    getGalleryImages()
-      .then(data => { if (data?.length > 0) setImages(data) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    try {
+      const data = await getGalleryImages()
+      if (data?.length > 0) setImages(data)
+    } catch {}
+    finally { setLoading(false) }
   }, [])
+
+  useEffect(() => { loadGallery() }, [loadGallery])
+
+  useEffect(() => {
+    const channel = supabase.channel('gallery-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, () => loadGallery())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [loadGallery])
 
   return { images, loading }
 }

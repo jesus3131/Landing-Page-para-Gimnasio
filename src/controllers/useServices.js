@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { getServices } from '../models/services.model'
 
 const fallback = [
@@ -14,13 +15,23 @@ export default function useServices() {
   const [services, setServices] = useState(fallback)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
+  const loadServices = useCallback(async () => {
     setLoading(true)
-    getServices()
-      .then(data => { if (data?.length > 0) setServices(data) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    try {
+      const data = await getServices()
+      if (data?.length > 0) setServices(data)
+    } catch {}
+    finally { setLoading(false) }
   }, [])
+
+  useEffect(() => { loadServices() }, [loadServices])
+
+  useEffect(() => {
+    const channel = supabase.channel('services-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'services' }, () => loadServices())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [loadServices])
 
   return { services, loading }
 }

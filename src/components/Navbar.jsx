@@ -76,59 +76,56 @@ export default function Navbar({ onLoginClick, onAdminClick }) {
           )}
         </ul>
 
-        <button
-          className="lg:hidden flex flex-col gap-1.5 p-1"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Abrir menú"
-        >
-          <span className={`block w-6 h-[2px] bg-white transition-all duration-300 ${menuOpen ? 'rotate-45 translate-y-[4px]' : ''}`} />
-          <span className={`block w-6 h-[2px] bg-white transition-all duration-300 ${menuOpen ? 'opacity-0' : ''}`} />
-          <span className={`block w-6 h-[2px] bg-white transition-all duration-300 ${menuOpen ? '-rotate-45 -translate-y-[4px]' : ''}`} />
-        </button>
-      </div>
-
-      <div
-        className={`lg:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-all duration-300 ${
-          menuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
-        }`}
-        onClick={closeMenu}
-      />
-
-      <div
-        className={`lg:hidden absolute left-0 w-full bg-surface-dark/98 backdrop-blur-md border-t border-white/10 shadow-2xl shadow-black/40 transition-all duration-300 origin-top ${
-          menuOpen ? 'opacity-100 visible scale-y-100' : 'opacity-0 invisible pointer-events-none scale-y-0'
-        }`}
-        style={{ top: '100%', maxHeight: 'calc(100dvh - 3.5rem)', overflowY: 'auto' }}
+      <button
+        className={`lg:hidden flex flex-col gap-1.5 p-2 rounded-lg z-50 relative ${menuOpen ? 'bg-white/10' : ''}`}
+        onClick={() => setMenuOpen(!menuOpen)}
+        aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
       >
-        <ul className="flex flex-col p-6 gap-5">
-          {navLinks.map((link) => (
-            <li key={link.href}>
-              <a href={link.href} onClick={closeMenu} className="text-white/80 hover:text-white font-body font-medium text-base transition-colors block py-1">
-                {link.label}
+        <span className={`block w-6 h-[2px] bg-white transition-all duration-300 ${menuOpen ? 'rotate-45 translate-y-[4px]' : ''}`} />
+        <span className={`block w-6 h-[2px] bg-white transition-all duration-300 ${menuOpen ? 'opacity-0' : ''}`} />
+        <span className={`block w-6 h-[2px] bg-white transition-all duration-300 ${menuOpen ? '-rotate-45 -translate-y-[4px]' : ''}`} />
+      </button>
+    </div>
+
+    {menuOpen && (
+      <>
+        <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm" onClick={closeMenu} />
+        <div className="lg:hidden fixed left-0 right-0 z-50 bg-surface-dark border-t border-white/10 shadow-2xl shadow-black/40 overflow-y-auto"
+          style={{ top: '60px', bottom: 0 }}
+        >
+          <div className="p-5 pb-8">
+            <ul className="flex flex-col gap-1">
+              {navLinks.map((link) => (
+                <li key={link.href}>
+                  <a href={link.href} onClick={closeMenu} className="flex items-center gap-3 text-white/70 hover:text-white hover:bg-white/5 font-body font-medium text-base px-4 py-3 rounded-xl transition-all">
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+              {canManage && (
+                <li>
+                  <button onClick={() => { closeMenu(); onAdminClick() }} className="flex items-center gap-3 text-primary hover:bg-primary/10 font-body font-medium text-base w-full text-left px-4 py-3 rounded-xl transition-all">
+                    Panel Admin
+                  </button>
+                </li>
+              )}
+            </ul>
+            <div className="border-t border-white/10 mt-4 pt-5 px-4 space-y-3">
+              {user ? (
+                <p className="text-white/40 font-body text-sm">Hola, {profile?.full_name}</p>
+              ) : (
+                <button onClick={() => { closeMenu(); onLoginClick() }} className="font-body text-white/50 hover:text-white text-sm transition-colors w-full text-left">
+                  Iniciar sesión
+                </button>
+              )}
+              <a href="#contacto" onClick={closeMenu} className="block bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-3 rounded-xl text-center w-full hover:bg-primary-hover transition-all">
+                Únete Ahora
               </a>
-            </li>
-          ))}
-          {canManage && (
-            <li>
-              <button onClick={() => { closeMenu(); onAdminClick() }} className="text-primary font-body font-medium text-base hover:text-primary-hover transition-colors w-full text-left py-1">
-                Panel Admin
-              </button>
-            </li>
-          )}
-          <li className="border-t border-white/5 pt-4">
-            {user ? (
-              <span className="text-white/40 font-body text-sm block mb-3">Hola, {profile?.full_name}</span>
-            ) : (
-              <button onClick={() => { closeMenu(); onLoginClick() }} className="font-body text-white/50 hover:text-white text-sm transition-colors w-full text-left mb-3">
-                Iniciar sesión
-              </button>
-            )}
-            <a href="#contacto" onClick={closeMenu} className="inline-block bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-3 rounded-xl text-center w-full hover:bg-primary-hover transition-all">
-              Únete Ahora
-            </a>
-          </li>
-        </ul>
-      </div>
+            </div>
+          </div>
+        </div>
+      </>
+    )}
     </nav>
   )
 }

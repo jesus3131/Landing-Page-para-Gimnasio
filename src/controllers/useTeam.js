@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { getTeam } from '../models/team.model'
 
 const fallback = [
@@ -11,13 +12,23 @@ export default function useTeam() {
   const [team, setTeam] = useState(fallback)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
+  const loadTeam = useCallback(async () => {
     setLoading(true)
-    getTeam()
-      .then(data => { if (data?.length > 0) setTeam(data) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    try {
+      const data = await getTeam()
+      if (data?.length > 0) setTeam(data)
+    } catch {}
+    finally { setLoading(false) }
   }, [])
+
+  useEffect(() => { loadTeam() }, [loadTeam])
+
+  useEffect(() => {
+    const channel = supabase.channel('team-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team' }, () => loadTeam())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [loadTeam])
 
   return { team, loading }
 }

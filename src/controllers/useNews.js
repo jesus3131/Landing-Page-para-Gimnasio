@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { getNews } from '../models/news.model'
 
 const fallback = [
@@ -11,13 +12,23 @@ export default function useNews() {
   const [news, setNews] = useState(fallback)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
+  const loadNews = useCallback(async () => {
     setLoading(true)
-    getNews()
-      .then(data => { if (data?.length > 0) setNews(data) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    try {
+      const data = await getNews()
+      if (data?.length > 0) setNews(data)
+    } catch {}
+    finally { setLoading(false) }
   }, [])
+
+  useEffect(() => { loadNews() }, [loadNews])
+
+  useEffect(() => {
+    const channel = supabase.channel('news-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, () => loadNews())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [loadNews])
 
   return { news, loading }
 }
