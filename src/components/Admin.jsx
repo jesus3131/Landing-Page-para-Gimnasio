@@ -638,15 +638,16 @@ function ServicesPanel() {
 function GalleryPanel() {
   const {
     images, loading, uploading, title, setTitle,
+    urlInput, setUrlInput,
     editingId, editTitle, setEditTitle, editCategory, setEditCategory,
-    dragOver, setDragOver, fileRef, upload, handleDrop, remove,
-    saveEdit, startEdit, cancelEdit,
+    dragOver, setDragOver, fileRef, upload, uploadFromUrl, handleDrop, remove,
+    saveEdit, startEdit, cancelEdit, toast,
   } = useAdminGallery()
   const [confirmId, setConfirmId] = useState(null)
 
   async function handleDelete(img) {
     try { await remove(img) }
-    catch { alert('Error al eliminar') }
+    catch { _ }
     setConfirmId(null)
   }
 
@@ -655,7 +656,7 @@ function GalleryPanel() {
       <h3 className="font-heading font-bold text-2xl text-white mb-6">Galería de imágenes</h3>
 
       <div
-        className={`border-2 border-dashed rounded-2xl p-8 mb-8 text-center transition-all ${
+        className={`border-2 border-dashed rounded-2xl p-8 mb-6 text-center transition-all ${
           dragOver ? 'border-primary bg-primary/5' : 'border-white/10 bg-surface-card hover:border-white/20'
         }`}
         onDragOver={e => { e.preventDefault(); setDragOver(true) }}
@@ -664,15 +665,24 @@ function GalleryPanel() {
       >
         <span className="material-symbols-outlined text-4xl text-white/20 mb-3">{dragOver ? 'cloud_upload' : 'add_photo_alternate'}</span>
         <p className="font-body text-white/50 text-sm mb-4">
-          {dragOver ? 'Suelta la imagen aquí' : 'Arrastra una imagen o selecciona desde el explorador'}
+          {dragOver ? 'Suelta la imagen aquí' : 'Arrastra una imagen o selecciona desde el dispositivo'}
         </p>
         <div className="flex flex-wrap justify-center gap-3">
-          <div className="relative">
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Título (opcional)" className="bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary w-44" />
-          </div>
-          <input type="file" ref={fileRef} accept="image/*" onChange={upload} hidden />
+          <input type="file" ref={fileRef} accept="image/png,image/jpeg,image/webp,image/gif,image/avif" onChange={upload} hidden />
           <button onClick={() => fileRef.current?.click()} disabled={uploading} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-50">
-            {uploading ? 'Subiendo...' : 'Seleccionar archivo'}
+            {uploading ? 'Subiendo...' : 'Subir desde dispositivo'}
+          </button>
+        </div>
+        <p className="font-body text-white/30 text-2xs mt-3">JPG, PNG, WEBP, GIF — Máx. 10 MB</p>
+      </div>
+
+      <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-8">
+        <p className="font-body text-white/40 text-xs mb-3">O pega una URL de imagen:</p>
+        <div className="flex flex-wrap gap-3">
+          <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)} placeholder="https://ejemplo.com/imagen.jpg" className="flex-1 min-w-[200px] bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+          <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Título (opcional)" className="w-44 bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+          <button onClick={uploadFromUrl} disabled={uploading || !urlInput.trim()} className="bg-surface-elevated text-white font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-white/10 transition-all disabled:opacity-50">
+            {uploading ? 'Agregando...' : 'Agregar desde URL'}
           </button>
         </div>
       </div>
@@ -741,6 +751,19 @@ function GalleryPanel() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-lg font-body text-sm animate-fade-in ${
+          toast.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+          toast.type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+          'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+        }`}>
+          <span className="material-symbols-outlined text-sm">
+            {toast.type === 'success' ? 'check_circle' : 'error'}
+          </span>
+          {toast.message}
         </div>
       )}
     </div>

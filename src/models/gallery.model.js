@@ -16,7 +16,7 @@ export async function getAllGalleryImages() {
   return data
 }
 
-export async function uploadGalleryImage(file, title) {
+export async function uploadGalleryImage(file, title, span) {
   const ext = file.name.split('.').pop()
   const filePath = `gallery/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
 
@@ -34,7 +34,21 @@ export async function uploadGalleryImage(file, title) {
       title: title || 'Sin título',
       alt: title || 'Imagen de galería',
       category: 'General',
-      span: 'lg:col-span-1 lg:row-span-1',
+      span: span || 'lg:col-span-1 lg:row-span-1',
+    }]).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function uploadGalleryImageFromUrl(imageUrl, title, span) {
+  const { data, error } = await supabase
+    .from('gallery').insert([{
+      image_url: imageUrl,
+      storage_path: null,
+      title: title || 'Sin título',
+      alt: title || 'Imagen de galería',
+      category: 'General',
+      span: span || 'lg:col-span-1 lg:row-span-1',
     }]).select().single()
   if (error) throw error
   return data
