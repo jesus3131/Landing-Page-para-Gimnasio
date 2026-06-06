@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import ImageField from './ImageField'
+import GymIconPicker from './GymIconPicker'
 import useAdminMessages from '../controllers/useAdminMessages'
 import useAdminGallery from '../controllers/useAdminGallery'
 import useAdminUsers from '../controllers/useAdminUsers'
@@ -377,7 +378,7 @@ function BenefitsPanel() {
   const fields = [
     { key: 'title', label: 'Título', placeholder: 'Ej: Equipos de última generación' },
     { key: 'description', label: 'Descripción', placeholder: 'Descripción del beneficio' },
-    { key: 'icon', label: 'Icono (Material Symbol)', placeholder: 'Ej: fitness_center' },
+    { key: 'icon', label: 'Icono', placeholder: 'Ej: fitness_center', type: 'icon' },
     { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...', type: 'image' },
     { key: 'stat', label: 'Estadística', placeholder: 'Ej: +50' },
     { key: 'stat_label', label: 'Etiqueta de estadística', placeholder: 'Ej: máquinas' },
@@ -400,13 +401,7 @@ function BenefitsPanel() {
 
       {showNew && (
         <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
-          {fields.map(f => (
-            f.type === 'image' ? (
-              <ImageField key={f.key} value={newData[f.key] || ''} onChange={v => setNewData(p => ({ ...p, [f.key]: v }))} label={f.label} />
-            ) : (
-              <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
-            )
-          ))}
+          {fields.map(f => renderField(f, newData, setNewData))}
           <button onClick={handleCreate} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
             Crear beneficio
           </button>
@@ -429,6 +424,8 @@ function BenefitsPanel() {
                       <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
                       {f.type === 'image' ? (
                         <ImageField value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
+                      ) : f.type === 'icon' ? (
+                        <GymIconPicker value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
                       ) : f.key === 'description' ? (
                         <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
                       ) : (
@@ -529,7 +526,7 @@ function ServicesPanel() {
   const fields = [
     { key: 'title', label: 'Título', placeholder: 'Ej: Musculación' },
     { key: 'description', label: 'Descripción', placeholder: 'Descripción del servicio' },
-    { key: 'icon', label: 'Icono (Material Symbol)', placeholder: 'Ej: fitness_center' },
+    { key: 'icon', label: 'Icono', placeholder: 'Ej: fitness_center', type: 'icon' },
     { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...', type: 'image' },
     { key: 'tag', label: 'Etiqueta', placeholder: 'Ej: Fuerza' },
     { key: 'tag_style', label: 'Estilo de etiqueta (Tailwind)', placeholder: 'bg-primary/20 text-primary' },
@@ -543,6 +540,9 @@ function ServicesPanel() {
     )
     if (f.type === 'image') return (
       <ImageField key={f.key} value={data[f.key] || ''} onChange={v => setData(p => ({ ...p, [f.key]: v }))} label={f.label} />
+    )
+    if (f.type === 'icon') return (
+      <GymIconPicker key={f.key} value={data[f.key] || ''} onChange={v => setData(p => ({ ...p, [f.key]: v }))} label={f.label} />
     )
     return (
       <input key={f.key} type="text" value={data[f.key] || ''} onChange={e => setData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
@@ -587,6 +587,8 @@ function ServicesPanel() {
                       <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
                       {f.type === 'image' ? (
                         <ImageField value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
+                      ) : f.type === 'icon' ? (
+                        <GymIconPicker value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
                       ) : f.area || f.key === 'description' ? (
                         <textarea value={editData[f.key]} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
                       ) : (
@@ -1383,13 +1385,13 @@ function EventsPanel() {
   const { events, loading, create, update, remove } = useAdminEvents()
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
-  const [newData, setNewData] = useState({ title: '', description: '', date: '', time: '', location: '', image_url: '' })
+  const [newData, setNewData] = useState({ title: '', description: '', date: '', time: '', location: '', image_url: '', icon: '' })
   const [showNew, setShowNew] = useState(false)
   const [confirmId, setConfirmId] = useState(null)
 
   function startEdit(e) {
     setEditingId(e.id)
-    setEditData({ title: e.title, description: e.description || '', date: e.date || '', time: e.time || '', location: e.location || '', image_url: e.image_url || '', active: e.active })
+    setEditData({ title: e.title, description: e.description || '', date: e.date || '', time: e.time || '', location: e.location || '', image_url: e.image_url || '', icon: e.icon || '', active: e.active })
   }
 
   async function saveEdit(id) {
@@ -1400,7 +1402,7 @@ function EventsPanel() {
 
   async function handleCreate() {
     if (!newData.title) return
-    try { await create(newData); setShowNew(false); setNewData({ title: '', description: '', date: '', time: '', location: '', image_url: '' }) }
+    try { await create(newData); setShowNew(false); setNewData({ title: '', description: '', date: '', time: '', location: '', image_url: '', icon: '' }) }
     catch { alert('Error al crear') }
   }
 
@@ -1415,6 +1417,7 @@ function EventsPanel() {
     { key: 'date', label: 'Fecha (YYYY-MM-DD)', placeholder: '2026-07-15' },
     { key: 'time', label: 'Hora', placeholder: '09:00' },
     { key: 'location', label: 'Ubicación', placeholder: 'ZonaFit Montería' },
+    { key: 'icon', label: 'Icono', placeholder: 'Ej: event', type: 'icon' },
     { key: 'image_url', label: 'URL de imagen', placeholder: 'https://...', type: 'image' },
   ]
 
@@ -1435,15 +1438,7 @@ function EventsPanel() {
 
       {showNew && (
         <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
-          {fields.map(f => (
-            f.area ? (
-              <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={2} />
-            ) : f.type === 'image' ? (
-              <ImageField key={f.key} value={newData[f.key] || ''} onChange={v => setNewData(p => ({ ...p, [f.key]: v }))} label={f.label} />
-            ) : (
-              <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
-            )
-          ))}
+          {fields.map(f => renderField(f, newData, setNewData))}
           <button onClick={handleCreate} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all">
             Crear evento
           </button>
@@ -1466,6 +1461,8 @@ function EventsPanel() {
                       <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">{f.label}</label>
                       {f.type === 'image' ? (
                         <ImageField value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
+                      ) : f.type === 'icon' ? (
+                        <GymIconPicker value={editData[f.key] || ''} onChange={v => setEditData(p => ({ ...p, [f.key]: v }))} />
                       ) : f.area ? (
                         <textarea value={editData[f.key]} onChange={e_ => setEditData(p => ({ ...p, [f.key]: e_.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary resize-none" rows={2} />
                       ) : (
