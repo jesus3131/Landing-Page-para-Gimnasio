@@ -88,9 +88,10 @@ export default function Navbar({ onLoginClick, onAdminClick }) {
       </div>
 
       <div
-        className={`lg:hidden fixed top-[60px] left-0 w-full bg-surface-dark/98 backdrop-blur-md border-t border-white/10 transition-all duration-300 ${
-          menuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
+        className={`lg:hidden fixed left-0 w-full bg-surface-dark/98 backdrop-blur-md border-t border-white/10 transition-all duration-300 overflow-y-auto ${
+          menuOpen ? 'opacity-100 visible max-h-[calc(100vh-3.5rem)]' : 'opacity-0 invisible pointer-events-none max-h-0'
         }`}
+        style={{ top: '100%' }}
       >
         <ul className="flex flex-col p-6 gap-5">
           {navLinks.map((link) => (
