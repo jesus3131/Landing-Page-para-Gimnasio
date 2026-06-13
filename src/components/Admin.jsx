@@ -149,25 +149,32 @@ export default function Admin({ onLogout }) {
                   </span>
                 )}
               </button>
-              {showAlerts && alerts.length > 0 && (
-                <div className="absolute bottom-full right-0 mb-2 w-80 bg-surface-card border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                  <div className="p-3 border-b border-white/5">
-                    <p className="font-body font-semibold text-white text-xs">Alertas de membresía</p>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {alerts.slice(0, 10).map(a => (
-                      <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors">
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.type === 'expired' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-body text-white text-xs truncate">{a.members?.full_name}</p>
-                          <p className="font-body text-white/40 text-2xs">{a.membership_plans?.name} · vence {a.end_date}</p>
-                        </div>
-                        <span className={`font-mono text-2xs px-2 py-0.5 rounded-full flex-shrink-0 ${a.type === 'expired' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{a.label}</span>
+                  {showAlerts && alerts.length > 0 && (
+                    <div className="absolute bottom-full right-0 mb-2 w-80 bg-surface-card border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                      <div className="p-3 border-b border-white/5">
+                        <p className="font-body font-semibold text-white text-xs">Alertas de membresía</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      <div className="max-h-64 overflow-y-auto">
+                        {alerts.slice(0, 10).map(a => (
+                          <div key={a.id} className="flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 transition-colors">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.type === 'expired' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-body text-white text-xs truncate">{a.members?.full_name}</p>
+                              <p className="font-body text-white/40 text-2xs">{a.membership_plans?.name} · vence {a.end_date}</p>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {a.members?.phone && (
+                                <a href={`https://wa.me/57${a.members.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hola ' + a.members.full_name + ', te recordamos que tu membresia en ZonaFit Gym ' + (a.type === 'expired' ? 'esta vencida. ¡Renueva ya!' : 'vence pronto. ¡Renueva a tiempo!'))}`} target="_blank" rel="noopener noreferrer" className="w-6 h-6 bg-green-500/10 rounded flex items-center justify-center hover:bg-green-500/20">
+                                  <span className="material-symbols-outlined text-green-400 text-xs">chat</span>
+                                </a>
+                              )}
+                              <span className={`font-mono text-2xs px-2 py-0.5 rounded-full ${a.type === 'expired' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{a.label}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
             </div>
           </div>
           <button onClick={logout} className="w-full border border-white/10 text-white/50 hover:text-white font-body text-xs py-2 rounded-lg hover:bg-white/5 transition-colors">
@@ -2938,13 +2945,21 @@ function CalendarPanel() {
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {selectedSubs.map(s => {
                 const isExpired = s.end_date < todayStr
+                const reminderText = isExpired ? 'Hola ' + s.members?.full_name + ', tu membresia en ZonaFit Gym esta vencida. ¡Renueva ya!' : 'Hola ' + s.members?.full_name + ', te recordamos que tu membresia en ZonaFit Gym vence el ' + s.end_date + '. ¡Renueva a tiempo!'
                 return (
                   <div key={s.id} className={`rounded-xl px-3 py-2.5 ${isExpired ? 'bg-red-500/10 border border-red-500/20' : s.end_date <= new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0] ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-white/5'}`}>
                     <div className="flex items-center justify-between">
                       <p className="font-body font-semibold text-white text-sm">{s.members?.full_name}</p>
-                      <span className={`font-mono text-2xs px-2 py-0.5 rounded-full ${isExpired ? 'bg-red-500/20 text-red-400' : s.end_date <= new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0] ? 'bg-amber-500/20 text-amber-400' : 'bg-green-500/20 text-green-400'}`}>
-                        {isExpired ? 'Vencido' : 'Activo'}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        {s.members?.phone && (
+                          <a href={`https://wa.me/57${s.members.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(reminderText)}`} target="_blank" rel="noopener noreferrer" className="w-6 h-6 bg-green-500/10 rounded flex items-center justify-center hover:bg-green-500/20">
+                            <span className="material-symbols-outlined text-green-400 text-xs">chat</span>
+                          </a>
+                        )}
+                        <span className={`font-mono text-2xs px-2 py-0.5 rounded-full ${isExpired ? 'bg-red-500/20 text-red-400' : s.end_date <= new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0] ? 'bg-amber-500/20 text-amber-400' : 'bg-green-500/20 text-green-400'}`}>
+                          {isExpired ? 'Vencido' : 'Activo'}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="font-body text-white/40 text-xs">{s.membership_plans?.name}</span>
