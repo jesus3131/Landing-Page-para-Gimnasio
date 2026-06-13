@@ -11,6 +11,10 @@ import useAdminCoaches from '../controllers/useAdminCoaches'
 import useAdminTeam from '../controllers/useAdminTeam'
 import useAdminEvents from '../controllers/useAdminEvents'
 import useAdminNews from '../controllers/useAdminNews'
+import useAdminMembers from '../controllers/useAdminMembers'
+import useAdminPayments from '../controllers/useAdminPayments'
+import useMetrics from '../controllers/useMetrics'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
 
 export default function Admin({ onLogout }) {
   const { profile, isAdmin, hasPermission, logout: authLogout } = useAuth()
@@ -29,6 +33,9 @@ export default function Admin({ onLogout }) {
     if (!can('events.manage') && activeTab === 'events') setActiveTab('dashboard')
     if (!can('news.manage') && activeTab === 'news') setActiveTab('dashboard')
     if (!can('gallery.manage') && activeTab === 'gallery') setActiveTab('dashboard')
+    if (!can('members.manage') && activeTab === 'members') setActiveTab('dashboard')
+    if (!can('payments.manage') && activeTab === 'payments') setActiveTab('dashboard')
+    if (!can('metrics.view') && activeTab === 'metrics') setActiveTab('dashboard')
   }, [activeTab])
 
   if (!profile) return null
@@ -43,6 +50,9 @@ export default function Admin({ onLogout }) {
     ...(can('events.manage') ? [{ id: 'events', label: 'Eventos', icon: 'event' }] : []),
     ...(can('news.manage') ? [{ id: 'news', label: 'Noticias', icon: 'newspaper' }] : []),
     ...(can('gallery.manage') ? [{ id: 'gallery', label: 'Galería', icon: 'photo_library' }] : []),
+    ...(can('members.manage') ? [{ id: 'members', label: 'Miembros', icon: 'group' }] : []),
+    ...(can('payments.manage') ? [{ id: 'payments', label: 'Pagos', icon: 'payments' }] : []),
+    ...(can('metrics.view') ? [{ id: 'metrics', label: 'Métricas', icon: 'monitoring' }] : []),
     ...(can('users.manage') ? [{ id: 'users', label: 'Usuarios', icon: 'people' }] : []),
   ]
 
@@ -123,6 +133,9 @@ export default function Admin({ onLogout }) {
           {activeTab === 'events' && <EventsPanel />}
           {activeTab === 'news' && <NewsPanel />}
           {activeTab === 'gallery' && <GalleryPanel />}
+          {activeTab === 'members' && <MembersPanel />}
+          {activeTab === 'payments' && <PaymentsPanel />}
+          {activeTab === 'metrics' && <MetricsPanel />}
           {activeTab === 'users' && <Users />}
         </div>
       </div>
@@ -810,6 +823,9 @@ const ALL_PERMISSIONS = [
   { id: 'events.manage', label: 'Eventos', icon: 'event' },
   { id: 'news.manage', label: 'Noticias', icon: 'newspaper' },
   { id: 'gallery.manage', label: 'Galería', icon: 'photo_library' },
+  { id: 'members.manage', label: 'Miembros', icon: 'group' },
+  { id: 'payments.manage', label: 'Pagos', icon: 'payments' },
+  { id: 'metrics.view', label: 'Métricas', icon: 'monitoring' },
   { id: 'users.manage', label: 'Usuarios', icon: 'people' },
 ]
 
@@ -1690,6 +1706,538 @@ function NewsPanel() {
               )}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const CHART_COLORS = ['#dfff00', '#60a5fa', '#f472b6', '#34d399', '#fbbf24', '#a78bfa', '#fb923c', '#2dd4bf', '#f87171', '#e879f9']
+
+function MetricsPanel() {
+  const { metrics, loading, refresh } = useMetrics()
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+  if (!metrics) return <div className="text-center py-16"><p className="font-body text-white/40">No hay datos disponibles.</p></div>
+
+  const revenueData = Object.entries(metrics.revenueByMonth || {}).map(([m, v]) => ({ month: m, ingresos: Number(v) })).sort((a, b) => a.month.localeCompare(b.month))
+  const planData = Object.entries(metrics.planDistribution || {}).map(([n, v]) => ({ name: n, value: v }))
+  const methodData = Object.entries(metrics.revenueByMethod || {}).map(([m, v]) => ({ name: m === 'cash' ? 'Efectivo' : m === 'transfer' ? 'Transferencia' : m === 'card' ? 'Tarjeta' : m, value: Number(v) }))
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-heading font-bold text-2xl text-white">Métricas & Reportes</h3>
+          <p className="font-body text-white/40 text-xs mt-1">Panel de rendimiento del gimnasio</p>
+        </div>
+        <button onClick={refresh} className="flex items-center gap-2 bg-surface-card border border-white/10 text-white font-body text-sm px-4 py-2 rounded-xl hover:bg-white/5 transition-all">
+          <span className="material-symbols-outlined text-sm">refresh</span>
+          Actualizar
+        </button>
+      </div>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-5">
+          <span className="material-symbols-outlined text-primary text-2xl mb-2">group</span>
+          <p className="font-body text-white/40 text-xs uppercase tracking-wider">Miembros activos</p>
+          <p className="font-heading font-bold text-3xl text-white mt-1">{metrics.activeSubscriptions}</p>
+        </div>
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-5">
+          <span className="material-symbols-outlined text-green-400 text-2xl mb-2">payments</span>
+          <p className="font-body text-white/40 text-xs uppercase tracking-wider">Ingresos totales</p>
+          <p className="font-heading font-bold text-3xl text-white mt-1">${Number(metrics.totalRevenue || 0).toLocaleString('es-CO')}</p>
+        </div>
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-5">
+          <span className="material-symbols-outlined text-amber-400 text-2xl mb-2">receipt_long</span>
+          <p className="font-body text-white/40 text-xs uppercase tracking-wider">Pagos registrados</p>
+          <p className="font-heading font-bold text-3xl text-white mt-1">{metrics.totalPayments}</p>
+        </div>
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-5">
+          <span className="material-symbols-outlined text-red-400 text-2xl mb-2">warning</span>
+          <p className="font-body text-white/40 text-xs uppercase tracking-wider">Vencidos / por vencer</p>
+          <p className="font-heading font-bold text-3xl text-white mt-1">{metrics.expiredMembers?.length || 0}<span className="text-sm text-white/40"> + {metrics.expiringSoon?.length || 0}</span></p>
+        </div>
+      </div>
+
+      {metrics.expiredMembers?.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-5 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="material-symbols-outlined text-red-400 text-lg">warning</span>
+            <h4 className="font-heading font-bold text-white text-sm">Membresías vencidas ({metrics.expiredMembers.length})</h4>
+          </div>
+          <div className="space-y-2">
+            {metrics.expiredMembers.slice(0, 5).map(m => (
+              <div key={m.id} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-2.5">
+                <span className="font-body text-white text-sm">{m.members?.full_name}</span>
+                <span className="font-body text-red-400 text-xs">Vence: {m.end_date}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {metrics.expiringSoon?.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="material-symbols-outlined text-amber-400 text-lg">schedule</span>
+            <h4 className="font-heading font-bold text-white text-sm">Por vencer pronto ({metrics.expiringSoon.length})</h4>
+          </div>
+          <div className="space-y-2">
+            {metrics.expiringSoon.slice(0, 5).map(m => (
+              <div key={m.id} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-2.5">
+                <span className="font-body text-white text-sm">{m.members?.full_name}</span>
+                <span className="font-body text-amber-400 text-xs">Vence: {m.end_date}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-6">
+          <h4 className="font-heading font-bold text-white text-sm mb-4">Ingresos por mes</h4>
+          {revenueData.length === 0 ? (
+            <p className="font-body text-white/30 text-xs text-center py-8">Sin datos de ingresos</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={revenueData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                <XAxis dataKey="month" tick={{ fill: '#ffffff60', fontSize: 11 }} />
+                <YAxis tick={{ fill: '#ffffff60', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #ffffff20', borderRadius: 12, color: '#fff' }} />
+                <Bar dataKey="ingresos" fill="#dfff00" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-6">
+          <h4 className="font-heading font-bold text-white text-sm mb-4">Miembros por plan</h4>
+          {planData.length === 0 ? (
+            <p className="font-body text-white/30 text-xs text-center py-8">Sin miembros registrados</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie data={planData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: ${value}`}>
+                  {planData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid #ffffff20', borderRadius: 12, color: '#fff' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-6">
+          <h4 className="font-heading font-bold text-white text-sm mb-4">Ingresos por método de pago</h4>
+          {methodData.length === 0 ? (
+            <p className="font-body text-white/30 text-xs text-center py-8">Sin datos de pagos</p>
+          ) : (
+            <div className="space-y-3">
+              {methodData.map((m, i) => {
+                const total = methodData.reduce((s, x) => s + x.value, 0)
+                const pct = total > 0 ? (m.value / total * 100) : 0
+                return (
+                  <div key={i}>
+                    <div className="flex justify-between mb-1">
+                      <span className="font-body text-white/70 text-xs">{m.name}</span>
+                      <span className="font-body text-white/50 text-xs">${Number(m.value).toLocaleString('es-CO')} ({pct.toFixed(1)}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: pct + '%', backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-6">
+          <h4 className="font-heading font-bold text-white text-sm mb-4">Planes disponibles</h4>
+          {(!metrics.plans || metrics.plans.length === 0) ? (
+            <p className="font-body text-white/30 text-xs text-center py-8">Sin planes configurados</p>
+          ) : (
+            <div className="space-y-3">
+              {metrics.plans.map(p => (
+                <div key={p.id} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3">
+                  <div>
+                    <p className="font-body font-semibold text-white text-sm">{p.name}</p>
+                    <p className="font-body text-white/30 text-xs">{p.duration_days} días</p>
+                  </div>
+                  <span className="font-heading font-bold text-primary">${Number(p.price).toLocaleString('es-CO')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MembersPanel() {
+  const { members, loading, create, update, remove, createSubscription } = useAdminMembers()
+  const [plans, setPlans] = useState([])
+  const [editingId, setEditingId] = useState(null)
+  const [editData, setEditData] = useState({})
+  const [newData, setNewData] = useState({ full_name: '', phone: '', email: '', document_type: 'CC', document_number: '', address: '', notes: '' })
+  const [showNew, setShowNew] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
+  const [search, setSearch] = useState('')
+  const [subModal, setSubModal] = useState(null)
+  const [subData, setSubData] = useState({ plan_id: '', start_date: new Date().toISOString().split('T')[0], end_date: '' })
+
+  useEffect(() => {
+    import('../models/subscriptions.model').then(m => m.getMembershipPlans()).then(setPlans).catch(() => {})
+  }, [])
+
+  function startEdit(m) {
+    setEditingId(m.id)
+    setEditData({ full_name: m.full_name, phone: m.phone || '', email: m.email || '', document_type: m.document_type || 'CC', document_number: m.document_number || '', address: m.address || '', notes: m.notes || '', photo_url: m.photo_url || '' })
+  }
+
+  async function saveEdit(id) {
+    try { await update(id, editData) }
+    catch { alert('Error al guardar') }
+    setEditingId(null)
+  }
+
+  async function handleCreate() {
+    if (!newData.full_name) return
+    try { await create(newData); setShowNew(false); setNewData({ full_name: '', phone: '', email: '', document_type: 'CC', document_number: '', address: '', notes: '' }) }
+    catch (e) { alert('Error al crear: ' + e.message) }
+  }
+
+  async function handleDelete(id) {
+    try { await remove(id); setConfirmId(null) }
+    catch { alert('Error al inhabilitar') }
+  }
+
+  async function handleSubscribe() {
+    if (!subModal || !subData.plan_id || !subData.end_date) return
+    try {
+      const plan = plans.find(p => p.id === subData.plan_id)
+      await createSubscription({
+        member_id: subModal.id,
+        plan_id: subData.plan_id,
+        start_date: subData.start_date,
+        end_date: subData.end_date,
+        price: plan?.price || 0,
+      })
+      setSubModal(null)
+      setSubData({ plan_id: '', start_date: new Date().toISOString().split('T')[0], end_date: '' })
+    } catch (e) { alert('Error al crear suscripción: ' + e.message) }
+  }
+
+  const filtered = members.filter(m =>
+    m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+    m.document_number?.includes(search) ||
+    m.phone?.includes(search)
+  )
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+
+  const fields = [
+    { key: 'full_name', label: 'Nombre completo', placeholder: 'Ej: Juan Pérez' },
+    { key: 'phone', label: 'Teléfono', placeholder: '+57 300 123 4567' },
+    { key: 'email', label: 'Email', placeholder: 'juan@ejemplo.com' },
+    { key: 'document_number', label: 'Número de documento', placeholder: '1234567890' },
+    { key: 'address', label: 'Dirección', placeholder: 'Cra 1 #2-3, Montería' },
+    { key: 'notes', label: 'Notas', placeholder: 'Observaciones...', area: true },
+  ]
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-heading font-bold text-2xl text-white">Miembros</h3>
+          <p className="font-body text-white/40 text-xs mt-1">{filtered.length} de {members.length} miembros</p>
+        </div>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
+          <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'person_add'}</span>
+          {showNew ? 'Cancelar' : 'Nuevo miembro'}
+        </button>
+      </div>
+
+      <div className="relative mb-6 max-w-xs">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 material-symbols-outlined text-lg">search</span>
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar miembros..." className="w-full bg-surface-card border border-white/10 rounded-xl pl-10 pr-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+      </div>
+
+      {showNew && (
+        <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
+          <div className="flex gap-2 mb-2">
+            {['CC', 'CE', 'NIT'].map(dt => (
+              <button key={dt} onClick={() => setNewData(p => ({ ...p, document_type: dt }))} className={`px-3 py-1.5 rounded-lg font-mono text-xs transition-all ${newData.document_type === dt ? 'bg-primary text-surface-dark font-semibold' : 'bg-white/5 text-white/50 hover:text-white'}`}>{dt}</button>
+            ))}
+          </div>
+          {fields.map(f => (
+            f.area ? (
+              <textarea key={f.key} value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary resize-none" rows={2} />
+            ) : (
+              <input key={f.key} type="text" value={newData[f.key]} onChange={e => setNewData(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+            )
+          ))}
+          <button onClick={handleCreate} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all">Crear miembro</button>
+        </div>
+      )}
+
+      {subModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setSubModal(null)}>
+          <div className="bg-surface-card border border-white/10 rounded-3xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h4 className="font-heading font-bold text-white text-lg mb-1">Nueva suscripción</h4>
+            <p className="font-body text-white/40 text-xs mb-5">{subModal.full_name}</p>
+            <div className="space-y-3">
+              <div>
+                <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">Plan</label>
+                <select value={subData.plan_id} onChange={e => {
+                  const plan = plans.find(p => p.id === e.target.value)
+                  const start = subData.start_date
+                  const end = plan ? new Date(new Date(start).getTime() + plan.duration_days * 86400000).toISOString().split('T')[0] : ''
+                  setSubData(p => ({ ...p, plan_id: e.target.value, end_date: end }))
+                }} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary">
+                  <option value="">Seleccionar plan...</option>
+                  {plans.filter(p => p.active).map(p => (
+                    <option key={p.id} value={p.id}>{p.name} — ${Number(p.price).toLocaleString('es-CO')} ({p.duration_days} días)</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">Fecha de inicio</label>
+                <input type="date" value={subData.start_date} onChange={e => {
+                  const start = e.target.value
+                  const plan = plans.find(p => p.id === subData.plan_id)
+                  const end = plan ? new Date(new Date(start).getTime() + plan.duration_days * 86400000).toISOString().split('T')[0] : ''
+                  setSubData(p => ({ ...p, start_date: start, end_date: end }))
+                }} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
+              </div>
+              <div>
+                <label className="font-body text-white/40 text-2xs uppercase tracking-wider block mb-1">Fecha de vencimiento</label>
+                <input type="date" value={subData.end_date} onChange={e => setSubData(p => ({ ...p, end_date: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={handleSubscribe} disabled={!subData.plan_id || !subData.end_date} className="flex-1 bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-50">
+                  Crear suscripción
+                </button>
+                <button onClick={() => setSubModal(null)} className="px-5 py-2.5 text-white/40 hover:text-white font-body text-sm rounded-xl">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <span className="material-symbols-outlined text-4xl text-white/20 mb-3">group</span>
+          <p className="font-body text-white/40">No hay miembros registrados.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Nombre</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Documento</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Teléfono</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Estado</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(m => (
+                <tr key={m.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${!m.active ? 'opacity-50' : ''}`}>
+                  <td className="py-3 pr-4">
+                    <p className="font-body font-semibold text-white text-sm">{m.full_name}</p>
+                    {m.email && <p className="font-body text-white/30 text-xs">{m.email}</p>}
+                  </td>
+                  <td className="py-3 pr-4">
+                    <span className="font-body text-white/50 text-xs">{m.document_type} {m.document_number}</span>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <span className="font-body text-white/50 text-xs">{m.phone || '—'}</span>
+                  </td>
+                  <td className="py-3 pr-4">
+                    {!m.active ? (
+                      <span className="font-mono text-2xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">Inactivo</span>
+                    ) : (
+                      <span className="font-mono text-2xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Activo</span>
+                    )}
+                  </td>
+                  <td className="py-3">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => startEdit(m)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                        <span className="material-symbols-outlined text-white/60 text-sm">edit</span>
+                      </button>
+                      <button onClick={() => setSubModal(m)} className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center hover:bg-primary/20">
+                        <span className="material-symbols-outlined text-primary text-sm">subscriptions</span>
+                      </button>
+                      {confirmId === m.id ? (
+                        <div className="flex gap-1">
+                          <button onClick={() => handleDelete(m.id)} className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600">
+                            <span className="material-symbols-outlined text-white text-sm">check</span>
+                          </button>
+                          <button onClick={() => setConfirmId(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                            <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => m.active ? setConfirmId(m.id) : null} className={`w-8 h-8 rounded-lg flex items-center justify-center ${m.active ? 'bg-red-500/10 hover:bg-red-500/20' : 'bg-white/5'} transition-colors`}>
+                          <span className={`material-symbols-outlined text-sm ${m.active ? 'text-red-400' : 'text-white/20'}`}>delete</span>
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PaymentsPanel() {
+  const { payments, loading, create, remove } = useAdminPayments()
+  const { members } = useAdminMembers()
+  const [showNew, setShowNew] = useState(false)
+  const [newPayment, setNewPayment] = useState({ member_id: '', amount: '', payment_method: 'cash', reference: '', notes: '' })
+  const [confirmId, setConfirmId] = useState(null)
+  const [search, setSearch] = useState('')
+
+  async function handleCreate() {
+    if (!newPayment.member_id || !newPayment.amount) return
+    try {
+      await create({
+        member_id: newPayment.member_id,
+        subscription_id: '00000000-0000-0000-0000-000000000000',
+        amount: parseFloat(newPayment.amount),
+        payment_method: newPayment.payment_method,
+        reference: newPayment.reference || null,
+        notes: newPayment.notes || null,
+      })
+      setShowNew(false)
+      setNewPayment({ member_id: '', amount: '', payment_method: 'cash', reference: '', notes: '' })
+    } catch (e) { alert('Error al registrar pago: ' + e.message) }
+  }
+
+  async function handleDelete(id) {
+    try { await remove(id); setConfirmId(null) }
+    catch { alert('Error al eliminar') }
+  }
+
+  const filtered = payments.filter(p =>
+    p.members?.full_name?.toLowerCase().includes(search.toLowerCase())
+  )
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+
+  const formatCOP = (n) => '$' + Number(n).toLocaleString('es-CO')
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-heading font-bold text-2xl text-white">Pagos</h3>
+          <p className="font-body text-white/40 text-xs mt-1">{payments.length} registros</p>
+        </div>
+        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
+          <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'payments'}</span>
+          {showNew ? 'Cancelar' : 'Registrar pago'}
+        </button>
+      </div>
+
+      <div className="relative mb-6 max-w-xs">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 material-symbols-outlined text-lg">search</span>
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre..." className="w-full bg-surface-card border border-white/10 rounded-xl pl-10 pr-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+      </div>
+
+      {showNew && (
+        <div className="bg-surface-card border border-white/10 rounded-2xl p-5 mb-6 space-y-3">
+          <h4 className="font-heading font-bold text-white text-sm">Nuevo pago</h4>
+          <select value={newPayment.member_id} onChange={e => setNewPayment(p => ({ ...p, member_id: e.target.value }))} className="w-full bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary">
+            <option value="">Seleccionar miembro...</option>
+            {members.filter(m => m.active).map(m => (
+              <option key={m.id} value={m.id}>{m.full_name} {m.document_number ? `(${m.document_type} ${m.document_number})` : ''}</option>
+            ))}
+          </select>
+          <div className="flex gap-3">
+            <input type="number" value={newPayment.amount} onChange={e => setNewPayment(p => ({ ...p, amount: e.target.value }))} placeholder="Monto" className="flex-1 bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+            <select value={newPayment.payment_method} onChange={e => setNewPayment(p => ({ ...p, payment_method: e.target.value }))} className="w-36 bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white focus:outline-none focus:border-primary">
+              <option value="cash">Efectivo</option>
+              <option value="transfer">Transferencia</option>
+              <option value="card">Tarjeta</option>
+              <option value="other">Otro</option>
+            </select>
+          </div>
+          <div className="flex gap-3">
+            <input type="text" value={newPayment.reference} onChange={e => setNewPayment(p => ({ ...p, reference: e.target.value }))} placeholder="Referencia (opcional)" className="flex-1 bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+            <input type="text" value={newPayment.notes} onChange={e => setNewPayment(p => ({ ...p, notes: e.target.value }))} placeholder="Notas" className="flex-1 bg-surface-dark border border-white/10 rounded-xl px-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+          </div>
+          <button onClick={handleCreate} disabled={!newPayment.member_id || !newPayment.amount} className="bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all disabled:opacity-50">
+            Registrar pago
+          </button>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <span className="material-symbols-outlined text-4xl text-white/20 mb-3">payments</span>
+          <p className="font-body text-white/40">No hay pagos registrados.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Miembro</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Monto</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Método</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3 pr-4">Fecha</th>
+                <th className="font-body text-white/50 text-2xs uppercase tracking-wider py-3">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(p => (
+                <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                  <td className="py-3 pr-4">
+                    <p className="font-body font-semibold text-white text-sm">{p.members?.full_name || '—'}</p>
+                    {p.members?.document_number && <span className="font-body text-white/30 text-xs">{p.members.document_type} {p.members.document_number}</span>}
+                  </td>
+                  <td className="py-3 pr-4">
+                    <span className="font-heading font-bold text-primary text-sm">{formatCOP(p.amount)}</span>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <span className="font-mono text-2xs bg-white/10 text-white/70 px-2 py-1 rounded-full">
+                      {p.payment_method === 'cash' ? 'Efectivo' : p.payment_method === 'transfer' ? 'Transferencia' : p.payment_method === 'card' ? 'Tarjeta' : p.payment_method}
+                    </span>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <span className="font-body text-white/50 text-xs">{p.payment_date}</span>
+                  </td>
+                  <td className="py-3">
+                    {confirmId === p.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => handleDelete(p.id)} className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600">
+                          <span className="material-symbols-outlined text-white text-sm">check</span>
+                        </button>
+                        <button onClick={() => setConfirmId(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                          <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmId(p.id)} className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center hover:bg-red-500/20">
+                        <span className="material-symbols-outlined text-red-400 text-sm">delete</span>
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
