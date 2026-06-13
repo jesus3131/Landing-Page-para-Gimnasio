@@ -12,8 +12,30 @@ export async function getAllSubscriptions() {
 export async function getActiveSubscriptions() {
   const { data, error } = await supabase
     .from('member_subscriptions')
-    .select('*, members!inner(full_name, phone), membership_plans(name, duration_days, price)')
+    .select('*, members!inner(full_name, phone, document_number), membership_plans(name, duration_days, price)')
     .eq('active', true)
+    .order('end_date')
+  if (error) throw error
+  return data
+}
+
+export async function getLatestSubscriptionPerMember() {
+  const { data, error } = await supabase
+    .from('member_subscriptions')
+    .select('*, membership_plans(name)')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  const map = {}
+  ;(data || []).forEach(s => {
+    if (!map[s.member_id]) map[s.member_id] = s
+  })
+  return Object.values(map)
+}
+
+export async function getCalendarSubscriptions() {
+  const { data, error } = await supabase
+    .from('member_subscriptions')
+    .select('*, members(full_name, phone, document_number), membership_plans(name, duration_days, price)')
     .order('end_date')
   if (error) throw error
   return data

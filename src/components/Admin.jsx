@@ -19,6 +19,48 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export default function Admin({ onLogout }) {
   const { profile, isAdmin, hasPermission, logout: authLogout } = useAuth()
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [expiredCount, setExpiredCount] = useState(0)
+  const [expiringCount, setExpiringCount] = useState(0)
+  const [alerts, setAlerts] = useState([])
+  const [showAlerts, setShowAlerts] = useState(false)
+  const alertRef = useRef(null)
+
+  useEffect(() => {
+    const loadAlerts = async () => {
+      try {
+        const { createClient } = await import('@supabase/supabase-js')
+        const supabase = (await import('../lib/supabase')).supabase
+        const today = new Date().toISOString().split('T')[0]
+        const in3days = new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]
+
+        const [expiredRes, expiringRes] = await Promise.all([
+          supabase.from('member_subscriptions')
+            .select('*, members(full_name, phone), membership_plans(name)')
+            .eq('active', true).lt('end_date', today).order('end_date'),
+          supabase.from('member_subscriptions')
+            .select('*, members(full_name, phone), membership_plans(name)')
+            .eq('active', true).gte('end_date', today).lte('end_date', in3days).order('end_date'),
+        ])
+        const expired = expiredRes.data || []
+        const expiring = expiringRes.data || []
+        setExpiredCount(expired.length)
+        setExpiringCount(expiring.length)
+        setAlerts([
+          ...expired.map(s => ({ ...s, type: 'expired', label: 'Vencido' })),
+          ...expiring.map(s => ({ ...s, type: 'expiring', label: 'Por vencer' })),
+        ])
+      } catch {}
+    }
+    loadAlerts()
+    const interval = setInterval(loadAlerts, 60000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    const handler = (e) => { if (!alertRef.current?.contains(e.target)) setShowAlerts(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const logout = () => { authLogout(); onLogout?.() }
 
@@ -34,6 +76,7 @@ export default function Admin({ onLogout }) {
     if (!can('news.manage') && activeTab === 'news') setActiveTab('dashboard')
     if (!can('gallery.manage') && activeTab === 'gallery') setActiveTab('dashboard')
     if (!can('members.manage') && activeTab === 'members') setActiveTab('dashboard')
+    if (!can('members.manage') && activeTab === 'calendar') setActiveTab('dashboard')
     if (!can('payments.manage') && activeTab === 'payments') setActiveTab('dashboard')
     if (!can('metrics.view') && activeTab === 'metrics') setActiveTab('dashboard')
   }, [activeTab])
@@ -51,6 +94,7 @@ export default function Admin({ onLogout }) {
     ...(can('news.manage') ? [{ id: 'news', label: 'Noticias', icon: 'newspaper' }] : []),
     ...(can('gallery.manage') ? [{ id: 'gallery', label: 'Galería', icon: 'photo_library' }] : []),
     ...(can('members.manage') ? [{ id: 'members', label: 'Miembros', icon: 'group' }] : []),
+    ...(can('members.manage') ? [{ id: 'calendar', label: 'Calendario', icon: 'calendar_month' }] : []),
     ...(can('payments.manage') ? [{ id: 'payments', label: 'Pagos', icon: 'payments' }] : []),
     ...(can('metrics.view') ? [{ id: 'metrics', label: 'Métricas', icon: 'monitoring' }] : []),
     ...(can('users.manage') ? [{ id: 'users', label: 'Usuarios', icon: 'people' }] : []),
@@ -91,6 +135,36 @@ export default function Admin({ onLogout }) {
             <div className="flex-1 min-w-0">
               <p className="font-body text-white text-sm truncate">{profile.full_name}</p>
               <p className="font-body text-primary text-2xs uppercase tracking-wider">{profile.role}</p>
+            </div>
+            <div className="relative" ref={alertRef}>
+              <button onClick={() => setShowAlerts(!showAlerts)} className="relative w-9 h-9 bg-white/5 rounded-xl flex items-center justify-center hover:bg-white/10 transition-colors">
+                <span className="material-symbols-outlined text-white/60 text-lg">notifications</span>
+                {(expiredCount + expiringCount) > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-2xs font-mono font-bold
+                    ${expiredCount > 0 ? 'bg-red-500 text-white' : 'bg-amber-500 text-surface-dark'}">
+                    {expiredCount + expiringCount}
+                  </span>
+                )}
+              </button>
+              {showAlerts && alerts.length > 0 && (
+                <div className="absolute bottom-full right-0 mb-2 w-80 bg-surface-card border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                  <div className="p-3 border-b border-white/5">
+                    <p className="font-body font-semibold text-white text-xs">Alertas de membresía</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {alerts.slice(0, 10).map(a => (
+                      <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.type === 'expired' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-body text-white text-xs truncate">{a.members?.full_name}</p>
+                          <p className="font-body text-white/40 text-2xs">{a.membership_plans?.name} · vence {a.end_date}</p>
+                        </div>
+                        <span className={`font-mono text-2xs px-2 py-0.5 rounded-full flex-shrink-0 ${a.type === 'expired' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{a.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <button onClick={logout} className="w-full border border-white/10 text-white/50 hover:text-white font-body text-xs py-2 rounded-lg hover:bg-white/5 transition-colors">
@@ -134,6 +208,7 @@ export default function Admin({ onLogout }) {
           {activeTab === 'news' && <NewsPanel />}
           {activeTab === 'gallery' && <GalleryPanel />}
           {activeTab === 'members' && <MembersPanel />}
+          {activeTab === 'calendar' && <CalendarPanel />}
           {activeTab === 'payments' && <PaymentsPanel />}
           {activeTab === 'metrics' && <MetricsPanel />}
           {activeTab === 'users' && <Users />}
@@ -1889,10 +1964,23 @@ function MembersPanel() {
   const [search, setSearch] = useState('')
   const [subModal, setSubModal] = useState(null)
   const [subData, setSubData] = useState({ plan_id: '', start_date: new Date().toISOString().split('T')[0], end_date: '' })
+  const [latestSubs, setLatestSubs] = useState({})
 
   useEffect(() => {
     import('../models/subscriptions.model').then(m => m.getMembershipPlans()).then(setPlans).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const m = await import('../models/subscriptions.model')
+        const subs = await m.getLatestSubscriptionPerMember()
+        const map = {}
+        ;(subs || []).forEach(s => { map[s.member_id] = s })
+        setLatestSubs(map)
+      } catch {}
+    })()
+  }, [members.length])
 
   function startEdit(m) {
     setEditingId(m.id)
@@ -2062,9 +2150,15 @@ function MembersPanel() {
                   <td className="py-3 pr-4">
                     {!m.active ? (
                       <span className="font-mono text-2xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">Inactivo</span>
-                    ) : (
-                      <span className="font-mono text-2xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Activo</span>
-                    )}
+                    ) : (() => {
+                      const sub = latestSubs[m.id]
+                      const today = new Date()
+                      if (!sub) return <span className="font-mono text-2xs bg-white/10 text-white/50 px-2 py-1 rounded-full">Sin plan</span>
+                      const end = new Date(sub.end_date + 'T23:59:59')
+                      if (end < today) return <span className="font-mono text-2xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">Vencido</span>
+                      if (end <= new Date(today.getTime() + 3 * 86400000)) return <span className="font-mono text-2xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">Por vencer</span>
+                      return <span className="font-mono text-2xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Activo</span>
+                    })()}
                   </td>
                   <td className="py-3">
                     <div className="flex items-center gap-2">
@@ -2240,6 +2334,213 @@ function PaymentsPanel() {
           </table>
         </div>
       )}
+    </div>
+  )
+}
+
+function CalendarPanel() {
+  const [subs, setSubs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [currentMonth, setCurrentMonth] = useState(() => new Date())
+  const [selectedDay, setSelectedDay] = useState(null)
+  const [members, setMembers] = useState([])
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const m = await import('../models/subscriptions.model')
+        const mm = await import('../models/members.model')
+        const [s, mems] = await Promise.all([m.getCalendarSubscriptions(), mm.getAllMembers()])
+        setSubs(s || [])
+        setMembers(mems || [])
+      } catch {}
+      setLoading(false)
+    })()
+  }, [])
+
+  const today = new Date()
+  const year = currentMonth.getFullYear()
+  const month = currentMonth.getMonth()
+
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const prevDays = new Date(year, month, 0).getDate()
+
+  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+  const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+
+  const nav = (d) => setCurrentMonth(new Date(year, month + d, 1))
+
+  const subsByDate = {}
+  subs.forEach(s => {
+    if (s.end_date) {
+      const d = s.end_date
+      if (!subsByDate[d]) subsByDate[d] = []
+      subsByDate[d].push(s)
+    }
+  })
+
+  const todayStr = today.toISOString().split('T')[0]
+  const dayStatus = (d) => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    const daySubs = subsByDate[dateStr]
+    if (!daySubs) return null
+    const hasExpired = daySubs.some(s => s.end_date < todayStr)
+    const hasExpiring = daySubs.some(s => s.end_date >= todayStr && s.end_date <= new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0])
+    if (hasExpired) return 'expired'
+    if (hasExpiring) return 'expiring'
+    return 'active'
+  }
+
+  const formatCOP = (n) => '$' + Number(n).toLocaleString('es-CO')
+
+  const days = []
+  for (let i = 0; i < firstDay; i++) {
+    days.push({ d: prevDays - firstDay + 1 + i, other: true })
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    days.push({ d, other: false })
+  }
+  const remaining = days.length % 7
+  if (remaining > 0) {
+    for (let i = 1; i <= 7 - remaining; i++) {
+      days.push({ d: i, other: true })
+    }
+  }
+
+  const weekRows = []
+  for (let i = 0; i < days.length; i += 7) {
+    weekRows.push(days.slice(i, i + 7))
+  }
+
+  const selectedDateStr = selectedDay
+    ? `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
+    : null
+
+  const selectedSubs = selectedDateStr ? (subsByDate[selectedDateStr] || []) : []
+  const activeMembersCount = members.filter(m => m.active).length
+  const expiredSubsCount = subs.filter(s => s.end_date && s.end_date < todayStr).length
+  const expiringSubsCount = subs.filter(s => s.end_date && s.end_date >= todayStr && s.end_date <= new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]).length
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-heading font-bold text-2xl text-white">Calendario de vencimientos</h3>
+          <p className="font-body text-white/40 text-xs mt-1">{activeMembersCount} miembros activos</p>
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-3 gap-4 mb-6">
+        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
+          <p className="font-body text-green-400 text-xs uppercase tracking-wider">Al día</p>
+          <p className="font-heading font-bold text-2xl text-white mt-1">{activeMembersCount - expiredSubsCount - expiringSubsCount}</p>
+        </div>
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
+          <p className="font-body text-amber-400 text-xs uppercase tracking-wider">Por vencer (7 días)</p>
+          <p className="font-heading font-bold text-2xl text-white mt-1">{expiringSubsCount}</p>
+        </div>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+          <p className="font-body text-red-400 text-xs uppercase tracking-wider">Vencidos</p>
+          <p className="font-heading font-bold text-2xl text-white mt-1">{expiredSubsCount}</p>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-[1fr_320px] gap-6">
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-5">
+            <button onClick={() => nav(-1)} className="w-9 h-9 bg-white/5 rounded-xl flex items-center justify-center hover:bg-white/10 transition-colors">
+              <span className="material-symbols-outlined text-white/60 text-lg">chevron_left</span>
+            </button>
+            <h4 className="font-heading font-bold text-white text-base">{monthNames[month]} {year}</h4>
+            <button onClick={() => nav(1)} className="w-9 h-9 bg-white/5 rounded-xl flex items-center justify-center hover:bg-white/10 transition-colors">
+              <span className="material-symbols-outlined text-white/60 text-lg">chevron_right</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 mb-2">
+            {dayNames.map(n => (
+              <div key={n} className="text-center font-body text-white/30 text-2xs py-2 uppercase tracking-wider">{n}</div>
+            ))}
+          </div>
+
+          {weekRows.map((row, ri) => (
+            <div key={ri} className="grid grid-cols-7">
+              {row.map((day, di) => {
+                const status = day.other ? null : dayStatus(day.d)
+                const isToday = !day.other && day.d === today.getDate() && month === today.getMonth() && year === today.getFullYear()
+                const isSelected = !day.other && day.d === selectedDay
+                const count = day.other ? 0 : (subsByDate[`${year}-${String(month + 1).padStart(2, '0')}-${String(day.d).padStart(2, '0')}`]?.length || 0)
+                return (
+                  <button
+                    key={di}
+                    onClick={() => !day.other && setSelectedDay(isSelected ? null : day.d)}
+                    className={`
+                      aspect-square rounded-xl flex flex-col items-center justify-center gap-0.5 text-sm transition-all relative
+                      ${day.other ? 'text-white/10 cursor-default' : isSelected ? 'bg-primary text-surface-dark font-bold' : isToday ? 'bg-primary/20 text-primary font-bold' : 'text-white/70 hover:bg-white/5'}
+                    `}
+                  >
+                    <span className={`font-body ${isSelected ? 'font-bold' : ''}`}>{day.d}</span>
+                    {!day.other && count > 0 && (
+                      <div className="flex gap-0.5">
+                        {status === 'expired' && <div className="w-1.5 h-1.5 rounded-full bg-red-500" />}
+                        {status === 'expiring' && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                        {status === 'active' && <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-5">
+          <h4 className="font-heading font-bold text-white text-sm mb-4">
+            {selectedDay
+              ? `${selectedDay} de ${monthNames[month]} ${year}`
+              : 'Selecciona un día'}
+          </h4>
+          {!selectedDay ? (
+            <div className="text-center py-8">
+              <span className="material-symbols-outlined text-3xl text-white/20 mb-2">calendar_month</span>
+              <p className="font-body text-white/30 text-xs">Toca un día para ver los vencimientos</p>
+            </div>
+          ) : selectedSubs.length === 0 ? (
+            <div className="text-center py-8">
+              <span className="material-symbols-outlined text-3xl text-white/20 mb-2">check_circle</span>
+              <p className="font-body text-white/30 text-xs">Sin vencimientos este día</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {selectedSubs.map(s => {
+                const isExpired = s.end_date < todayStr
+                return (
+                  <div key={s.id} className={`rounded-xl px-3 py-2.5 ${isExpired ? 'bg-red-500/10 border border-red-500/20' : s.end_date <= new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0] ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-white/5'}`}>
+                    <div className="flex items-center justify-between">
+                      <p className="font-body font-semibold text-white text-sm">{s.members?.full_name}</p>
+                      <span className={`font-mono text-2xs px-2 py-0.5 rounded-full ${isExpired ? 'bg-red-500/20 text-red-400' : s.end_date <= new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0] ? 'bg-amber-500/20 text-amber-400' : 'bg-green-500/20 text-green-400'}`}>
+                        {isExpired ? 'Vencido' : 'Activo'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-body text-white/40 text-xs">{s.membership_plans?.name}</span>
+                      <span className="font-body text-white/20 text-xs">·</span>
+                      <span className="font-body text-white/40 text-xs">{s.members?.phone || 'Sin teléfono'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-body text-white/30 text-2xs">Inicio: {s.start_date}</span>
+                      <span className="font-body text-white/30 text-2xs">Fin: {s.end_date}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
