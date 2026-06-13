@@ -67,6 +67,22 @@ export async function deleteSubscription(id) {
   if (error) throw error
 }
 
+export async function cancelSubscription(id) {
+  const { error } = await supabase
+    .from('member_subscriptions').update({ active: false }).eq('id', id)
+  if (error) throw error
+}
+
+export async function getMemberSubscriptions(memberId) {
+  const { data, error } = await supabase
+    .from('member_subscriptions')
+    .select('*, membership_plans(name, duration_days, price)')
+    .eq('member_id', memberId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
 export async function getMembershipPlans() {
   const { data, error } = await supabase
     .from('membership_plans').select('*').order('sort_order')

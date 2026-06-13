@@ -1954,7 +1954,7 @@ function MetricsPanel() {
 }
 
 function MembersPanel() {
-  const { members, loading, create, update, remove, createSubscription } = useAdminMembers()
+  const { members, loading, create, update, remove, createSubscription, updateSubscription, cancelSubscription } = useAdminMembers()
   const [plans, setPlans] = useState([])
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
@@ -1965,6 +1965,11 @@ function MembersPanel() {
   const [subModal, setSubModal] = useState(null)
   const [subData, setSubData] = useState({ plan_id: '', start_date: new Date().toISOString().split('T')[0], end_date: '' })
   const [latestSubs, setLatestSubs] = useState({})
+  const [subViewModal, setSubViewModal] = useState(null)
+  const [subViewData, setSubViewData] = useState([])
+  const [editSubId, setEditSubId] = useState(null)
+  const [editSubEndDate, setEditSubEndDate] = useState('')
+  const [cancelSubId, setCancelSubId] = useState(null)
 
   useEffect(() => {
     import('../models/subscriptions.model').then(m => m.getMembershipPlans()).then(setPlans).catch(() => {})
@@ -2017,7 +2022,57 @@ function MembersPanel() {
       })
       setSubModal(null)
       setSubData({ plan_id: '', start_date: new Date().toISOString().split('T')[0], end_date: '' })
+      const m = await import('../models/subscriptions.model')
+      const subs = await m.getLatestSubscriptionPerMember()
+      const map = {}
+      ;(subs || []).forEach(s => { map[s.member_id] = s })
+      setLatestSubs(map)
     } catch (e) { alert('Error al crear suscripción: ' + e.message) }
+  }
+
+  async function handleViewSubs(member) {
+    try {
+      const m = await import('../models/subscriptions.model')
+      const subs = await m.getMemberSubscriptions(member.id)
+      setSubViewData(subs || [])
+      setSubViewModal(member)
+    } catch { alert('Error al cargar suscripciones') }
+  }
+
+  async function handleEditSubDate(subId) {
+    if (!editSubEndDate) return
+    try {
+      await updateSubscription(subId, { end_date: editSubEndDate })
+      setEditSubId(null)
+      setEditSubEndDate('')
+      if (subViewModal) {
+        const m = await import('../models/subscriptions.model')
+        const subs = await m.getMemberSubscriptions(subViewModal.id)
+        setSubViewData(subs || [])
+      }
+      const m = await import('../models/subscriptions.model')
+      const subs = await m.getLatestSubscriptionPerMember()
+      const map = {}
+      ;(subs || []).forEach(s => { map[s.member_id] = s })
+      setLatestSubs(map)
+    } catch { alert('Error al actualizar fecha') }
+  }
+
+  async function handleCancelSub(subId) {
+    try {
+      await cancelSubscription(subId)
+      setCancelSubId(null)
+      if (subViewModal) {
+        const m = await import('../models/subscriptions.model')
+        const subs = await m.getMemberSubscriptions(subViewModal.id)
+        setSubViewData(subs || [])
+      }
+      const m = await import('../models/subscriptions.model')
+      const subs = await m.getLatestSubscriptionPerMember()
+      const map = {}
+      ;(subs || []).forEach(s => { map[s.member_id] = s })
+      setLatestSubs(map)
+    } catch { alert('Error al cancelar suscripción') }
   }
 
   const filtered = members.filter(m =>
@@ -2025,6 +2080,36 @@ function MembersPanel() {
     m.document_number?.includes(search) ||
     m.phone?.includes(search)
   )
+
+  function exportCSV() {
+    const headers = ['Nombre', 'Documento', 'Teléfono', 'Email', 'Dirección', 'Estado', 'Plan', 'Vencimiento']
+    const rows = filtered.map(m => {
+      const sub = latestSubs[m.id]
+      let status = 'Inactivo'
+      let plan = ''
+      let end = ''
+      if (m.active) {
+        if (!sub) { status = 'Sin plan' }
+        else {
+          const today = new Date()
+          const endDate = new Date(sub.end_date + 'T23:59:59')
+          if (endDate < today) status = 'Vencido'
+          else if (endDate <= new Date(today.getTime() + 3 * 86400000)) status = 'Por vencer'
+          else status = 'Activo'
+          plan = sub.membership_plans?.name || ''
+          end = sub.end_date || ''
+        }
+      }
+      return [m.full_name, `${m.document_type || ''} ${m.document_number || ''}`, m.phone || '', m.email || '', m.address || '', status, plan, end]
+    })
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `miembros_${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
 
@@ -2044,10 +2129,18 @@ function MembersPanel() {
           <h3 className="font-heading font-bold text-2xl text-white">Miembros</h3>
           <p className="font-body text-white/40 text-xs mt-1">{filtered.length} de {members.length} miembros</p>
         </div>
-        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
-          <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'person_add'}</span>
-          {showNew ? 'Cancelar' : 'Nuevo miembro'}
-        </button>
+        <div className="flex gap-2">
+          {filtered.length > 0 && (
+            <button onClick={exportCSV} className="flex items-center gap-2 bg-white/5 text-white/70 font-body text-sm px-3 py-2 rounded-xl hover:bg-white/10 transition-all">
+              <span className="material-symbols-outlined text-sm">download</span>
+              CSV
+            </button>
+          )}
+          <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
+            <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'person_add'}</span>
+            {showNew ? 'Cancelar' : 'Nuevo miembro'}
+          </button>
+        </div>
       </div>
 
       <div className="relative mb-6 max-w-xs">
@@ -2117,6 +2210,82 @@ function MembersPanel() {
         </div>
       )}
 
+      {subViewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => { setSubViewModal(null); setEditSubId(null); setCancelSubId(null) }}>
+          <div className="bg-surface-card border border-white/10 rounded-3xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h4 className="font-heading font-bold text-white text-lg">Suscripciones</h4>
+                <p className="font-body text-white/40 text-xs mt-0.5">{subViewModal.full_name}</p>
+              </div>
+              <button onClick={() => { setSubViewModal(null); setEditSubId(null); setCancelSubId(null) }} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+              </button>
+            </div>
+            {subViewData.length === 0 ? (
+              <div className="text-center py-8">
+                <span className="material-symbols-outlined text-3xl text-white/20 mb-2">subscriptions</span>
+                <p className="font-body text-white/30 text-xs">Sin suscripciones registradas</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {subViewData.map(s => (
+                  <div key={s.id} className={`rounded-xl p-4 ${s.active ? 'bg-white/5' : 'bg-red-500/10 border border-red-500/20'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-body font-semibold text-white text-sm">{s.membership_plans?.name}</span>
+                        {!s.active && <span className="font-mono text-2xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">Cancelada</span>}
+                      </div>
+                      <span className="font-heading font-bold text-primary text-sm">${Number(s.price).toLocaleString('es-CO')}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-2xs font-body text-white/40">
+                      <span>Inicio: {s.start_date}</span>
+                      <span>Fin: {s.end_date}</span>
+                    </div>
+                    {s.active && (
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
+                        {editSubId === s.id ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <input type="date" value={editSubEndDate} onChange={e => setEditSubEndDate(e.target.value)} className="flex-1 bg-surface-dark border border-white/10 rounded-lg px-3 py-1.5 font-body text-xs text-white focus:outline-none focus:border-primary" />
+                            <button onClick={() => handleEditSubDate(s.id)} className="bg-primary text-surface-dark font-body text-xs px-3 py-1.5 rounded-lg hover:bg-primary-hover">
+                              Guardar
+                            </button>
+                            <button onClick={() => setEditSubId(null)} className="text-white/40 hover:text-white font-body text-xs">
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : cancelSubId === s.id ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-body text-xs text-red-400">¿Cancelar esta suscripción?</span>
+                            <button onClick={() => handleCancelSub(s.id)} className="bg-red-500 text-white font-body text-xs px-3 py-1.5 rounded-lg hover:bg-red-600">
+                              Sí, cancelar
+                            </button>
+                            <button onClick={() => setCancelSubId(null)} className="text-white/40 hover:text-white font-body text-xs">
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button onClick={() => { setEditSubId(s.id); setEditSubEndDate(s.end_date); setCancelSubId(null) }} className="flex items-center gap-1 text-white/50 hover:text-primary font-body text-xs transition-colors">
+                              <span className="material-symbols-outlined text-xs">edit</span>
+                              Editar fecha
+                            </button>
+                            <button onClick={() => { setCancelSubId(s.id); setEditSubId(null) }} className="flex items-center gap-1 text-red-400/70 hover:text-red-400 font-body text-xs transition-colors">
+                              <span className="material-symbols-outlined text-xs">cancel</span>
+                              Cancelar
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="text-center py-16">
           <span className="material-symbols-outlined text-4xl text-white/20 mb-3">group</span>
@@ -2155,6 +2324,7 @@ function MembersPanel() {
                       const today = new Date()
                       if (!sub) return <span className="font-mono text-2xs bg-white/10 text-white/50 px-2 py-1 rounded-full">Sin plan</span>
                       const end = new Date(sub.end_date + 'T23:59:59')
+                      if (!sub.active) return <span className="font-mono text-2xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">Cancelada</span>
                       if (end < today) return <span className="font-mono text-2xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">Vencido</span>
                       if (end <= new Date(today.getTime() + 3 * 86400000)) return <span className="font-mono text-2xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">Por vencer</span>
                       return <span className="font-mono text-2xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Activo</span>
@@ -2165,8 +2335,11 @@ function MembersPanel() {
                       <button onClick={() => startEdit(m)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
                         <span className="material-symbols-outlined text-white/60 text-sm">edit</span>
                       </button>
-                      <button onClick={() => setSubModal(m)} className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center hover:bg-primary/20">
-                        <span className="material-symbols-outlined text-primary text-sm">subscriptions</span>
+                      <button onClick={() => handleViewSubs(m)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${latestSubs[m.id] ? 'bg-primary/10 hover:bg-primary/20' : 'bg-white/5 hover:bg-white/10'}`}>
+                        <span className={`material-symbols-outlined text-sm ${latestSubs[m.id] ? 'text-primary' : 'text-white/40'}`}>subscriptions</span>
+                      </button>
+                      <button onClick={() => setSubModal(m)} className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center hover:bg-emerald-500/20">
+                        <span className="material-symbols-outlined text-emerald-400 text-sm">add</span>
                       </button>
                       {confirmId === m.id ? (
                         <div className="flex gap-1">
@@ -2223,6 +2396,26 @@ function PaymentsPanel() {
     catch { alert('Error al eliminar') }
   }
 
+  function exportPaymentsCSV() {
+    const headers = ['Miembro', 'Documento', 'Monto', 'Método', 'Referencia', 'Fecha', 'Notas']
+    const rows = filtered.map(p => [
+      p.members?.full_name || '',
+      p.members?.document_number ? `${p.members.document_type || ''} ${p.members.document_number}` : '',
+      p.amount,
+      p.payment_method === 'cash' ? 'Efectivo' : p.payment_method === 'transfer' ? 'Transferencia' : p.payment_method === 'card' ? 'Tarjeta' : p.payment_method,
+      p.reference || '',
+      p.payment_date || '',
+      p.notes || '',
+    ])
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `pagos_${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   const filtered = payments.filter(p =>
     p.members?.full_name?.toLowerCase().includes(search.toLowerCase())
   )
@@ -2238,10 +2431,18 @@ function PaymentsPanel() {
           <h3 className="font-heading font-bold text-2xl text-white">Pagos</h3>
           <p className="font-body text-white/40 text-xs mt-1">{payments.length} registros</p>
         </div>
-        <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
-          <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'payments'}</span>
-          {showNew ? 'Cancelar' : 'Registrar pago'}
-        </button>
+        <div className="flex gap-2">
+          {payments.length > 0 && (
+            <button onClick={exportPaymentsCSV} className="flex items-center gap-2 bg-white/5 text-white/70 font-body text-sm px-3 py-2 rounded-xl hover:bg-white/10 transition-all">
+              <span className="material-symbols-outlined text-sm">download</span>
+              CSV
+            </button>
+          )}
+          <button onClick={() => setShowNew(!showNew)} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2 rounded-xl hover:bg-primary-hover transition-all">
+            <span className="material-symbols-outlined text-sm">{showNew ? 'close' : 'payments'}</span>
+            {showNew ? 'Cancelar' : 'Registrar pago'}
+          </button>
+        </div>
       </div>
 
       <div className="relative mb-6 max-w-xs">

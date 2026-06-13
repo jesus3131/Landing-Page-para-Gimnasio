@@ -37,5 +37,13 @@ export default function useAdminMembers() {
     return sub
   }
 
-  return { members, loading, create, update, remove, createSubscription, refresh: load }
+  async function updateSubscription(id, fields) {
+    await subscriptionsModel.updateSubscription(id, fields)
+  }
+
+  async function cancelSubscription(id) {
+    await subscriptionsModel.cancelSubscription(id)
+  }
+
+  return { members, loading, create, update, remove, createSubscription, updateSubscription, cancelSubscription, refresh: load }
 }
