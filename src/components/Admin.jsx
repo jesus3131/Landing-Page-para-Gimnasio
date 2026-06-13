@@ -13,6 +13,7 @@ import useAdminEvents from '../controllers/useAdminEvents'
 import useAdminNews from '../controllers/useAdminNews'
 import useAdminMembers from '../controllers/useAdminMembers'
 import useAdminPayments from '../controllers/useAdminPayments'
+import useAdminAttendance from '../controllers/useAdminAttendance'
 import useMetrics from '../controllers/useMetrics'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
 
@@ -77,6 +78,7 @@ export default function Admin({ onLogout }) {
     if (!can('gallery.manage') && activeTab === 'gallery') setActiveTab('dashboard')
     if (!can('members.manage') && activeTab === 'members') setActiveTab('dashboard')
     if (!can('members.manage') && activeTab === 'calendar') setActiveTab('dashboard')
+    if (!can('members.manage') && activeTab === 'attendance') setActiveTab('dashboard')
     if (!can('payments.manage') && activeTab === 'payments') setActiveTab('dashboard')
     if (!can('metrics.view') && activeTab === 'metrics') setActiveTab('dashboard')
   }, [activeTab])
@@ -95,6 +97,7 @@ export default function Admin({ onLogout }) {
     ...(can('gallery.manage') ? [{ id: 'gallery', label: 'Galería', icon: 'photo_library' }] : []),
     ...(can('members.manage') ? [{ id: 'members', label: 'Miembros', icon: 'group' }] : []),
     ...(can('members.manage') ? [{ id: 'calendar', label: 'Calendario', icon: 'calendar_month' }] : []),
+    ...(can('members.manage') ? [{ id: 'attendance', label: 'Asistencia', icon: 'qr_code_scanner' }] : []),
     ...(can('payments.manage') ? [{ id: 'payments', label: 'Pagos', icon: 'payments' }] : []),
     ...(can('metrics.view') ? [{ id: 'metrics', label: 'Métricas', icon: 'monitoring' }] : []),
     ...(can('users.manage') ? [{ id: 'users', label: 'Usuarios', icon: 'people' }] : []),
@@ -209,6 +212,7 @@ export default function Admin({ onLogout }) {
           {activeTab === 'gallery' && <GalleryPanel />}
           {activeTab === 'members' && <MembersPanel />}
           {activeTab === 'calendar' && <CalendarPanel />}
+          {activeTab === 'attendance' && <AttendancePanel />}
           {activeTab === 'payments' && <PaymentsPanel />}
           {activeTab === 'metrics' && <MetricsPanel />}
           {activeTab === 'users' && <Users />}
@@ -227,10 +231,35 @@ function Dashboard({ onNavigate }) {
   const { team, loading: teamLoading } = useAdminTeam()
   const { events, loading: eventsLoading } = useAdminEvents()
   const { news, loading: newsLoading } = useAdminNews()
+  const { metrics, loading: metricsLoading } = useMetrics()
+  const { attendance, stats: attStats, loading: attLoading } = useAdminAttendance()
 
   const can = (perm) => isAdmin || hasPermission(perm)
 
+  const now = new Date()
+  const monthStr = now.toISOString().substring(0, 7)
+  const paymentsThisMonth = metrics?.payments?.filter(p => p.payment_date?.startsWith(monthStr)) || []
+  const revenueThisMonth = paymentsThisMonth.reduce((s, p) => s + Number(p.amount), 0)
+
+  const todayStr = now.toISOString().split('T')[0]
+  const newMembersThisMonth = metrics?.activeMembers || 0
+
   const stats = [
+    ...(can('members.manage') ? [{
+      icon: 'group', label: 'Miembros activos', value: metrics?.activeMembers || 0,
+      sub: `${metrics?.activeSubscriptions || 0} con suscripción activa`,
+      color: 'bg-emerald-500/10 text-emerald-400', tab: 'members',
+    }] : []),
+    ...(can('payments.manage') ? [{
+      icon: 'payments', label: 'Facturación del mes', value: `$${(revenueThisMonth).toLocaleString('es-CO')}`,
+      sub: `${paymentsThisMonth.length} pago${paymentsThisMonth.length !== 1 ? 's' : ''} este mes`,
+      color: 'bg-primary/10 text-primary', tab: 'payments',
+    }] : []),
+    ...(can('members.manage') ? [{
+      icon: 'monitoring', label: 'Asistencia hoy', value: attendance.length,
+      sub: attStats ? `${attStats.total} en los últimos 30 días` : '',
+      color: 'bg-blue-500/10 text-blue-400', tab: 'attendance',
+    }] : []),
     ...(can('messages.manage') ? [{
       icon: 'mail', label: 'Mensajes', value: messages.length,
       sub: `${messages.filter(m => !m.read).length} sin leer`,
@@ -278,7 +307,15 @@ function Dashboard({ onNavigate }) {
     }] : []),
   ]
 
-  const loading = msgLoading || imgLoading || usrLoading || coachesLoading || teamLoading || eventsLoading || newsLoading
+  const loading = msgLoading || imgLoading || usrLoading || coachesLoading || teamLoading || eventsLoading || newsLoading || metricsLoading || attLoading
+
+  const attChartData = attStats?.daily
+    ? Object.entries(attStats.daily).slice(-14).map(([d, c]) => ({ date: d.substring(5), count: c }))
+    : []
+
+  const revChartData = metrics?.revenueByMonth
+    ? Object.entries(metrics.revenueByMonth).slice(-6).map(([m, v]) => ({ month: m, revenue: v }))
+    : []
 
   return (
     <div>
@@ -306,16 +343,63 @@ function Dashboard({ onNavigate }) {
         ))}
       </div>
 
+      <div className="grid lg:grid-cols-2 gap-5 mb-10">
+        {revChartData.length > 0 && (
+          <div className="bg-surface-card border border-white/5 rounded-2xl p-6">
+            <h4 className="font-heading font-bold text-white text-sm mb-4">Ingresos mensuales</h4>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={revChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="month" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
+                <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }} />
+                <Bar dataKey="revenue" fill="#dfff00" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {attChartData.length > 0 && (
+          <div className="bg-surface-card border border-white/5 rounded-2xl p-6">
+            <h4 className="font-heading font-bold text-white text-sm mb-4">Asistencia diaria (14 días)</h4>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={attChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
+                <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }} />
+                <Line type="monotone" dataKey="count" stroke="#60a5fa" strokeWidth={2} dot={{ fill: '#60a5fa', r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
       <div className="bg-surface-card border border-white/5 rounded-2xl p-6">
         <h3 className="font-heading font-bold text-lg text-white mb-4">Acceso rápido</h3>
-        <div className="grid sm:grid-cols-2 gap-3">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <button onClick={() => onNavigate('messages')} className="flex items-center gap-3 bg-white/5 hover:bg-primary/10 rounded-xl p-4 transition-colors text-left">
             <span className="material-symbols-outlined text-primary">mail</span>
             <div><p className="font-body font-semibold text-white text-sm">Revisar mensajes</p><p className="font-body text-white/40 text-xs">Gestiona las solicitudes de contacto</p></div>
           </button>
+          <button onClick={() => onNavigate('members')} className="flex items-center gap-3 bg-white/5 hover:bg-primary/10 rounded-xl p-4 transition-colors text-left">
+            <span className="material-symbols-outlined text-primary">group</span>
+            <div><p className="font-body font-semibold text-white text-sm">Gestionar miembros</p><p className="font-body text-white/40 text-xs">Registra y administra miembros</p></div>
+          </button>
+          <button onClick={() => onNavigate('payments')} className="flex items-center gap-3 bg-white/5 hover:bg-primary/10 rounded-xl p-4 transition-colors text-left">
+            <span className="material-symbols-outlined text-primary">payments</span>
+            <div><p className="font-body font-semibold text-white text-sm">Registrar pagos</p><p className="font-body text-white/40 text-xs">Control de pagos y membresías</p></div>
+          </button>
+          <button onClick={() => onNavigate('attendance')} className="flex items-center gap-3 bg-white/5 hover:bg-primary/10 rounded-xl p-4 transition-colors text-left">
+            <span className="material-symbols-outlined text-primary">qr_code_scanner</span>
+            <div><p className="font-body font-semibold text-white text-sm">Registrar asistencia</p><p className="font-body text-white/40 text-xs">Check-in diario de miembros</p></div>
+          </button>
           <button onClick={() => onNavigate('gallery')} className="flex items-center gap-3 bg-white/5 hover:bg-primary/10 rounded-xl p-4 transition-colors text-left">
             <span className="material-symbols-outlined text-primary">add_photo_alternate</span>
             <div><p className="font-body font-semibold text-white text-sm">Subir imágenes</p><p className="font-body text-white/40 text-xs">Actualiza la galería del sitio</p></div>
+          </button>
+          <button onClick={() => onNavigate('calendar')} className="flex items-center gap-3 bg-white/5 hover:bg-primary/10 rounded-xl p-4 transition-colors text-left">
+            <span className="material-symbols-outlined text-primary">calendar_month</span>
+            <div><p className="font-body font-semibold text-white text-sm">Calendario</p><p className="font-body text-white/40 text-xs">Vencimientos y eventos</p></div>
           </button>
         </div>
       </div>
@@ -1970,6 +2054,7 @@ function MembersPanel() {
   const [editSubId, setEditSubId] = useState(null)
   const [editSubEndDate, setEditSubEndDate] = useState('')
   const [cancelSubId, setCancelSubId] = useState(null)
+  const [cardMember, setCardMember] = useState(null)
 
   useEffect(() => {
     import('../models/subscriptions.model').then(m => m.getMembershipPlans()).then(setPlans).catch(() => {})
@@ -2286,6 +2371,65 @@ function MembersPanel() {
         </div>
       )}
 
+      {cardMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 print:bg-white print:p-0 print:static print:inset-auto" onClick={() => setCardMember(null)}>
+          <div className="bg-surface-card border border-white/10 rounded-3xl p-6 w-full max-w-sm print:shadow-none print:border-0 print:bg-white print:p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5 print:hidden">
+              <h4 className="font-heading font-bold text-white text-lg">Carnet de membresía</h4>
+              <button onClick={() => setCardMember(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+              </button>
+            </div>
+            <div className="bg-gradient-to-br from-surface-dark to-surface-card rounded-2xl p-5 border border-white/10 print:border-gray-200 print:from-white print:to-white">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="font-heading font-bold text-primary text-lg print:text-black">ZONAFIT</p>
+                  <p className="font-body text-white/40 text-2xs print:text-gray-500">Gimnasio · Montería</p>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-primary text-xl print:text-black">fitness_center</span>
+                </div>
+              </div>
+              <div className="mb-5">
+                <p className="font-heading font-bold text-white text-xl mb-1 print:text-black">{cardMember.full_name}</p>
+                <p className="font-body text-white/40 text-xs print:text-gray-500">{cardMember.document_type} {cardMember.document_number}</p>
+              </div>
+              {(() => {
+                const sub = latestSubs[cardMember.id]
+                if (!sub) return <p className="font-body text-white/30 text-xs print:text-gray-400">Sin suscripción activa</p>
+                return (
+                  <div className="space-y-2 text-2xs">
+                    <div className="flex justify-between">
+                      <span className="font-body text-white/40 print:text-gray-500">Plan</span>
+                      <span className="font-body text-white font-semibold print:text-black">{sub.membership_plans?.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-body text-white/40 print:text-gray-500">Inicio</span>
+                      <span className="font-body text-white print:text-black">{sub.start_date}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-body text-white/40 print:text-gray-500">Vence</span>
+                      <span className="font-body text-white font-semibold print:text-black">{sub.end_date}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-white/10 print:border-gray-200">
+                      <span className="font-body text-white/40 print:text-gray-500">ID</span>
+                      <span className="font-mono text-white/50 print:text-gray-400">{sub.id?.substring(0, 8).toUpperCase()}</span>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+            <div className="flex gap-3 mt-4 print:hidden">
+              <button onClick={() => window.print()} className="flex items-center gap-2 bg-primary text-surface-dark font-body font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-hover transition-all flex-1 justify-center">
+                <span className="material-symbols-outlined text-sm">print</span>
+                Imprimir
+              </button>
+              <button onClick={() => setCardMember(null)} className="px-5 py-2.5 text-white/40 hover:text-white font-body text-sm rounded-xl">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="text-center py-16">
           <span className="material-symbols-outlined text-4xl text-white/20 mb-3">group</span>
@@ -2341,6 +2485,14 @@ function MembersPanel() {
                       <button onClick={() => setSubModal(m)} className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center hover:bg-emerald-500/20">
                         <span className="material-symbols-outlined text-emerald-400 text-sm">add</span>
                       </button>
+                      {m.phone && (
+                        <a href={`https://wa.me/57${m.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hola ' + m.full_name + ', soy de ZonaFit Gym.')}`} target="_blank" rel="noopener noreferrer" className="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center hover:bg-green-500/20">
+                          <span className="material-symbols-outlined text-green-400 text-sm">chat</span>
+                        </a>
+                      )}
+                      <button onClick={() => setCardMember(m)} className="w-8 h-8 bg-indigo-500/10 rounded-lg flex items-center justify-center hover:bg-indigo-500/20">
+                        <span className="material-symbols-outlined text-indigo-400 text-sm">badge</span>
+                      </button>
                       {confirmId === m.id ? (
                         <div className="flex gap-1">
                           <button onClick={() => handleDelete(m.id)} className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600">
@@ -2374,6 +2526,7 @@ function PaymentsPanel() {
   const [newPayment, setNewPayment] = useState({ member_id: '', amount: '', payment_method: 'cash', reference: '', notes: '' })
   const [confirmId, setConfirmId] = useState(null)
   const [search, setSearch] = useState('')
+  const [receiptPayment, setReceiptPayment] = useState(null)
 
   async function handleCreate() {
     if (!newPayment.member_id || !newPayment.amount) return
@@ -2514,25 +2667,92 @@ function PaymentsPanel() {
                     <span className="font-body text-white/50 text-xs">{p.payment_date}</span>
                   </td>
                   <td className="py-3">
-                    {confirmId === p.id ? (
-                      <div className="flex gap-1">
-                        <button onClick={() => handleDelete(p.id)} className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600">
-                          <span className="material-symbols-outlined text-white text-sm">check</span>
-                        </button>
-                        <button onClick={() => setConfirmId(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
-                          <span className="material-symbols-outlined text-white/60 text-sm">close</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setConfirmId(p.id)} className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center hover:bg-red-500/20">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setReceiptPayment(p)} className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center hover:bg-primary/20">
+                        <span className="material-symbols-outlined text-primary text-sm">receipt</span>
+                      </button>
+                      {confirmId === p.id ? (
+                        <div className="flex gap-1">
+                          <button onClick={() => handleDelete(p.id)} className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center hover:bg-red-600">
+                            <span className="material-symbols-outlined text-white text-sm">check</span>
+                          </button>
+                          <button onClick={() => setConfirmId(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                            <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmId(p.id)} className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center hover:bg-red-500/20">
                         <span className="material-symbols-outlined text-red-400 text-sm">delete</span>
                       </button>
                     )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {receiptPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setReceiptPayment(null)}>
+          <div className="bg-surface-card border border-white/10 rounded-3xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="font-heading font-bold text-white text-lg">Recibo de pago</h4>
+              <button onClick={() => setReceiptPayment(null)} className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10">
+                <span className="material-symbols-outlined text-white/60 text-sm">close</span>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="text-center pb-4 border-b border-white/10">
+                <p className="font-heading font-bold text-primary text-xl">ZONAFIT</p>
+                <p className="font-body text-white/40 text-xs">Gimnasio · Montería</p>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="font-body text-white/40">Miembro</span>
+                  <span className="font-body text-white font-semibold">{receiptPayment.members?.full_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-body text-white/40">Documento</span>
+                  <span className="font-body text-white">{receiptPayment.members?.document_type} {receiptPayment.members?.document_number}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-body text-white/40">Monto</span>
+                  <span className="font-heading font-bold text-primary">{formatCOP(receiptPayment.amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-body text-white/40">Método</span>
+                  <span className="font-body text-white">
+                    {receiptPayment.payment_method === 'cash' ? 'Efectivo' : receiptPayment.payment_method === 'transfer' ? 'Transferencia' : receiptPayment.payment_method === 'card' ? 'Tarjeta' : receiptPayment.payment_method}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-body text-white/40">Fecha</span>
+                  <span className="font-body text-white">{receiptPayment.payment_date}</span>
+                </div>
+                {receiptPayment.reference && (
+                  <div className="flex justify-between">
+                    <span className="font-body text-white/40">Referencia</span>
+                    <span className="font-mono text-white/70 text-xs">{receiptPayment.reference}</span>
+                  </div>
+                )}
+                {receiptPayment.notes && (
+                  <div className="pt-2 border-t border-white/5">
+                    <span className="font-body text-white/40 text-xs">Notas</span>
+                    <p className="font-body text-white/60 text-xs mt-1">{receiptPayment.notes}</p>
+                  </div>
+                )}
+              </div>
+              <div className="pt-4 border-t border-white/10 flex gap-3">
+                <button onClick={() => window.print()} className="flex-1 bg-primary text-surface-dark font-body font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-primary-hover transition-all flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined text-sm">print</span>
+                  Imprimir
+                </button>
+                <button onClick={() => setReceiptPayment(null)} className="px-4 py-2.5 text-white/40 hover:text-white font-body text-sm rounded-xl">Cerrar</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -2742,6 +2962,143 @@ function CalendarPanel() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function AttendancePanel() {
+  const { attendance, loading, stats, checkIn } = useAdminAttendance()
+  const [members, setMembers] = useState([])
+  const [search, setSearch] = useState('')
+  const [checkinMsg, setCheckinMsg] = useState(null)
+
+  useEffect(() => {
+    import('../models/members.model').then(m => m.getAllMembers()).then(d => setMembers(d || [])).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!checkinMsg) return
+    const t = setTimeout(() => setCheckinMsg(null), 3000)
+    return () => clearTimeout(t)
+  }, [checkinMsg])
+
+  const filtered = members.filter(m =>
+    m.active && (
+      m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+      m.document_number?.includes(search) ||
+      m.phone?.includes(search)
+    )
+  )
+
+  const checkedInIds = new Set(attendance.map(a => a.member_id))
+
+  async function handleCheckIn(memberId, name) {
+    try {
+      await checkIn(memberId)
+      setCheckinMsg({ type: 'success', text: 'Check-in: ' + name })
+    } catch {
+      setCheckinMsg({ type: 'error', text: 'Error al registrar ' + name })
+    }
+  }
+
+  const formatDate = (d) => {
+    const dt = new Date(d)
+    return dt.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <h3 className="font-heading font-bold text-2xl text-white">Asistencia</h3>
+          <p className="font-body text-white/40 text-xs mt-1">{attendance.length} check-in{attendance.length !== 1 ? 's' : ''} hoy</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="font-body text-white/50 text-xs">{stats?.total || 0} en 30 dias</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative mb-6 max-w-xs">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 material-symbols-outlined text-lg">search</span>
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar miembro..." className="w-full bg-surface-card border border-white/10 rounded-xl pl-10 pr-4 py-2.5 font-body text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary" />
+      </div>
+
+      <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-5">
+          <h4 className="font-heading font-bold text-white text-sm mb-4">Miembros activos</h4>
+          {filtered.length === 0 ? (
+            <div className="text-center py-8">
+              <span className="material-symbols-outlined text-3xl text-white/20 mb-2">search</span>
+              <p className="font-body text-white/30 text-xs">No se encontraron miembros</p>
+            </div>
+          ) : (
+            <div className="space-y-1 max-h-[500px] overflow-y-auto">
+              {filtered.map(m => {
+                const checked = checkedInIds.has(m.id)
+                return (
+                  <div key={m.id} className={'flex items-center justify-between p-3 rounded-xl transition-all ' + (checked ? 'bg-green-500/10 border border-green-500/20' : 'bg-white/5 hover:bg-white/[0.07]')}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={'w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ' + (checked ? 'bg-green-500/20' : 'bg-white/10')}>
+                        <span className={'material-symbols-outlined text-sm ' + (checked ? 'text-green-400' : 'text-white/40')}>{checked ? 'check' : 'person'}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-body font-semibold text-white text-sm truncate">{m.full_name}</p>
+                        <p className="font-body text-white/30 text-2xs">{m.document_type} {m.document_number}{m.phone ? ' . ' + m.phone : ''}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {checked ? (
+                        <span className="font-mono text-2xs text-green-400">{formatDate(attendance.find(a => a.member_id === m.id)?.check_in)}</span>
+                      ) : (
+                        <button onClick={() => handleCheckIn(m.id, m.full_name)} className="bg-primary text-surface-dark font-body font-semibold text-xs px-3 py-1.5 rounded-lg hover:bg-primary-hover transition-all">
+                          Check-in
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-surface-card border border-white/5 rounded-2xl p-5">
+          <h4 className="font-heading font-bold text-white text-sm mb-4">Registro de hoy</h4>
+          {attendance.length === 0 ? (
+            <div className="text-center py-8">
+              <span className="material-symbols-outlined text-3xl text-white/20 mb-2">qr_code_scanner</span>
+              <p className="font-body text-white/30 text-xs">Sin registros hoy</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+              {attendance.map(a => (
+                <div key={a.id} className="flex items-center gap-3 bg-white/5 rounded-xl p-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <span className="material-symbols-outlined text-primary text-sm">person</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-body font-semibold text-white text-xs truncate">{a.members?.full_name}</p>
+                    <p className="font-body text-white/30 text-2xs">{a.members?.document_number || ''}</p>
+                  </div>
+                  <span className="font-mono text-2xs text-white/50 flex-shrink-0">{formatDate(a.check_in)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {checkinMsg && (
+        <div className={'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-lg font-body text-sm transition-all animate-fade-in ' + (checkinMsg.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30')}>
+          <span className="material-symbols-outlined text-sm">{checkinMsg.type === 'success' ? 'check_circle' : 'error'}</span>
+          {checkinMsg.text}
+        </div>
+      )}
     </div>
   )
 }
